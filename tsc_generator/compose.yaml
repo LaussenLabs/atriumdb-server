@@ -1,0 +1,185 @@
+
+services:
+  tsc-generator:
+    # enter path to directory containing dockerfile or url to git repo
+    build: ./src
+    configs:
+      - config.yaml
+      - secrets.yaml
+#    restart: always
+    # set internal path you want meta, tsc and wal files to sit at
+    # format is host/path:container/path
+    volumes:
+      - ../datasets/test_dataset/meta:/data/meta
+      - ../datasets/test_dataset/tsc:/data/tsc
+      - ../datasets/test_dataset/wal:/data/wal
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    links:
+      - mariadb
+
+
+  # if you want bundled rabbitMQ container
+  rabbitMQ:
+    image: rabbitmq:3-management
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 0s
+#    restart: always
+    ports:
+      - 127.0.0.1:5672:5672
+      - 127.0.0.1:15672:15672
+
+  siridb:
+    image: ghcr.io/siridb/siridb-server:latest
+    ports:
+      - 127.0.0.1:8080:8080
+      - 127.0.0.1:9000:9000
+      - 127.0.0.1:9080:9080
+    volumes:
+      - ../datasets/test_dataset/siridb:/var/lib/siridb
+    environment:
+      SIRIDB_OPTIMIZING_INTERVAL: 3600
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O", "-", "http://localhost:8080/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 0s
+#    restart: always
+
+
+  wal-writer:
+    build: ../adb-svc-wal
+    configs:
+      - config.yaml
+      - secrets.yaml
+    # Set internal path where you want wal files stored format is host/path:container/path
+    volumes:
+      - ../datasets/test_dataset/meta:/data/meta
+      - ../datasets/test_dataset/tsc:/data/tsc
+      - ../datasets/test_dataset/wal:/data/wal
+      - ../datasets/test_dataset/certs:/certs
+#    restart: always
+    depends_on:
+      rabbitMQ:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+      siridb:
+        condition: service_healthy
+    links:
+      - rabbitMQ
+      - siridb
+      - mariadb
+
+  mariadb:
+    image: mariadb:latest
+    restart: always
+    volumes:
+      - ../datasets/test_dataset/mariadb:/var/lib/mysql
+    environment:
+      MARIADB_ROOT_PASSWORD: example
+      MARIADB_MYSQL_LOCALHOST_USER: 1
+      MARIADB_PASSWORD: maria
+      MARIADB_USER: maria
+      MARIADB_DATABASE: atriumdb_dataset
+    ports:
+      - 127.0.0.1:3306:3306
+    healthcheck:
+      test: /usr/local/bin/healthcheck.sh --su mysql --connect
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 0s
+
+  adminer:
+    image: adminer:latest
+    restart: always
+    ports:
+      - 127.0.0.1:8090:8080
+    links:
+      - mariadb
+
+  adt:
+    build: ../adb-svc-hl7adt
+#    restart: always
+    configs:
+      - config.yaml
+      - secrets.yaml
+    volumes:
+      - ../datasets/test_dataset/hl7_backup:/hl7_backup
+    ports:
+      - 127.0.0.1:2575:2575
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    links:
+      - mariadb
+
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - 127.0.0.1:6379:6379
+      - 127.0.0.1:8001:8001
+
+  siu:
+    build: ../adb-svc-hl7siu
+#    restart: always
+    configs:
+      - config.yaml
+      - secrets.yaml
+    volumes:
+      - ../datasets/test_dataset/siu_hl7_backup:/hl7_backup
+    ports:
+      - 127.0.0.1:2576:2575
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    links:
+      - mariadb
+
+  epc-adapter:
+    build: ../pdss-adapter-epc
+    hostname: epc-adapter
+    configs:
+      - config.yaml
+      - secrets.yaml
+    volumes:
+      - ../pdss-adapter-epc/config.yaml:/app/config.yaml
+      - ../pdss-adapter-epc/src:/app/src
+    depends_on:
+      rabbitMQ:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:2575:2575
+
+configs:
+  config.yaml:
+    file: ./config.yaml
+  secrets.yaml:
+    file: ./secrets.yaml
+
+# external:true means the resource is not managed by compose and it already exists externally (need to point to it in
+# volumes section of tsc-generator, wal-writer, siridb and mariadb)
+volumes:
+  meta:
+    external: true
+  tsc:
+    external: true
+  wal:
+    external: true
+  siridb:
+    external: true
+  mariadb:
+    external: true
+  hl7_backup:
+    external: true
+  siu_hl7_backup:
+    external: true
+  certs:
+    external: true

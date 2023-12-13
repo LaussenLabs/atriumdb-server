@@ -1,0 +1,161 @@
+import logging
+import os
+from urllib import parse
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+    OTLPMetricExporter,
+)
+from opentelemetry.metrics import (
+    CallbackOptions,
+    Observation,
+    Instrument,
+    get_meter_provider,
+    set_meter_provider,
+)
+from opentelemetry.sdk.metrics import MeterProvider, Meter, Counter
+from opentelemetry.sdk.metrics.export import (
+    PeriodicExportingMetricReader,
+    AggregationTemporality,
+)
+from opentelemetry.sdk.metrics.view import LastValueAggregation
+from opentelemetry.sdk.resources import (
+    SERVICE_NAME,
+    OTEL_SERVICE_NAME,
+    OTEL_RESOURCE_ATTRIBUTES,
+    Resource,
+)
+from walwriter.config import config
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _detect_resource_attribute() -> "dict":
+    """detect any attribute configuration set in environment variables"""
+    env_resources_items = os.environ.get(OTEL_RESOURCE_ATTRIBUTES)
+    env_resource_map = {}
+
+    if env_resources_items:
+        for item in env_resources_items.split(","):
+            try:
+                key, value = item.split("=", maxsplit=1)
+            except ValueError as exc:
+                _LOGGER.warning(
+                    "Invalid key value resource attribute pair %s: %s",
+                    item,
+                    exc,
+                )
+                continue
+            value_url_decoded = parse.unquote(value.strip())
+            env_resource_map[key.strip()] = value_url_decoded
+    return env_resource_map
+
+
+# Define all metrics names
+METRIC = "atriumdb.walwriter."
+WALWRITER_ERRORS = METRIC + "errors"
+WALWRITER_PROCESSED_MESSAGE = METRIC + "messages.processed"
+WALWRITER_PROCESSED_MESSAGE_WAVEFORMS = METRIC + "messages.processed.waveforms"
+WALWRITER_PROCESSED_MESSAGE_METRICS = METRIC + "messages.processed.metrics"
+WALWRITER_NO_SIRI_CONNECTION = METRIC + "messages.processed.no.siri.connection"
+WALWRITER_MESSAGE_SIRI_DURATION = METRIC + "messages.siri.duration"
+WALWRITER_MESSAGE_WRITE_DURATION = METRIC + "messages.write.duration"
+WALWRITER_WAL_FILES_OPEN = METRIC + "wal.files.open"
+WALWRITER_WAL_FILES_CREATED = METRIC + "wal.files.created"
+
+# Set global Metrics module values
+EXPORT_INTERVAL = os.environ.get("OTEL_METRIC_EXPORT_INTERVAL", 5_000)
+temporality_cumulative = {Counter: AggregationTemporality.CUMULATIVE}
+temporality_delta = {Counter: AggregationTemporality.DELTA}
+aggregation_last_value = {Counter: LastValueAggregation()}
+resource_attrib = _detect_resource_attribute()
+resource_attrib[SERVICE_NAME] = os.environ.get(OTEL_SERVICE_NAME, "atriumdb-walwriter")
+# here you can add more custom labels that are useful for metrics timeseries
+# resource_attrib["custom key"] = "value"
+resource_attrib["atriumdb_instance"] = config.instance_name
+
+
+# TO DO verify that this is not over exposed
+# we want that port 4317 not to be bound to external network traffic
+_exporter = OTLPMetricExporter(
+    insecure=True,
+    # preferred_aggregation=aggregation_last_value,
+    preferred_temporality=temporality_cumulative,
+)
+
+_reader = PeriodicExportingMetricReader(_exporter, export_interval_millis=EXPORT_INTERVAL)
+_resource = Resource(attributes=resource_attrib)
+_provider = MeterProvider(metric_readers=[_reader], resource=_resource)
+set_meter_provider(_provider)
+_meter = get_meter_provider().get_meter("opentelemetry.instrumentation.wal-writer")
+
+_ADAPTER_METRICS = None
+
+
+def _init_metrics(meter: Meter):
+    global _ADAPTER_METRICS
+    if not _ADAPTER_METRICS:
+        exception_counter = meter.create_counter(
+            WALWRITER_ERRORS,
+            description="number of non critical errors"
+        )
+        siri_connection_fail_counter = meter.create_counter(
+            WALWRITER_NO_SIRI_CONNECTION,
+            description="number of messages processed without siri connection",
+        )
+        processed_counter = meter.create_counter(
+            WALWRITER_PROCESSED_MESSAGE,
+            description="number of messages processed",
+        )
+        processed_waveforms_counter = meter.create_counter(
+            WALWRITER_PROCESSED_MESSAGE_WAVEFORMS,
+            description="number of waveform messages processed",
+        )
+        processed_metrics_counter = meter.create_counter(
+            WALWRITER_PROCESSED_MESSAGE_METRICS,
+            description="number of metric messages processed",
+        )
+        open_wal_files_gauge = meter.create_up_down_counter(
+            WALWRITER_WAL_FILES_OPEN,
+            description="number of wal files that haven't been closed"
+        )
+        message_processing_duration_siri = meter.create_histogram(
+            WALWRITER_MESSAGE_SIRI_DURATION,
+            description="siri message insert times",
+            unit="ms",
+        )
+        message_processing_duration_write = meter.create_histogram(
+            WALWRITER_MESSAGE_WRITE_DURATION,
+            description="WAL file writing times",
+            unit="ms",
+        )
+        wal_files_created_counter = meter.create_counter(
+            WALWRITER_WAL_FILES_CREATED,
+            description="Number of WAL files created"
+        )
+
+        adapter_metrics = {
+            WALWRITER_ERRORS: exception_counter,
+            WALWRITER_PROCESSED_MESSAGE: processed_counter,
+            WALWRITER_PROCESSED_MESSAGE_WAVEFORMS: processed_waveforms_counter,
+            WALWRITER_PROCESSED_MESSAGE_METRICS: processed_metrics_counter,
+            WALWRITER_NO_SIRI_CONNECTION: siri_connection_fail_counter,
+            WALWRITER_MESSAGE_SIRI_DURATION: message_processing_duration_siri,
+            WALWRITER_MESSAGE_WRITE_DURATION: message_processing_duration_write,
+            WALWRITER_WAL_FILES_OPEN: open_wal_files_gauge,
+            WALWRITER_WAL_FILES_CREATED: wal_files_created_counter,
+        }
+
+        _ADAPTER_METRICS = adapter_metrics
+    return _ADAPTER_METRICS
+
+
+def get_metric(name: str):
+    """Get a metric object instance"""
+    if not _ADAPTER_METRICS:
+        _init_metrics(_meter)
+        _print_metrics_configuration()
+    return _ADAPTER_METRICS.get(name, None)
+
+
+def _print_metrics_configuration():
+    _LOGGER.info(f"Metrics Resource Lables: {_resource.attributes}")
+    _LOGGER.info(f"Metrics EXPORT_INTERVAL(ms): {EXPORT_INTERVAL}")

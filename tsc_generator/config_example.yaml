@@ -1,0 +1,178 @@
+loglevel: "info"
+dataset_location: /data
+timezone: 'America/Toronto'
+instance_name: "adb_install_1"
+
+#### TSC GENERATOR STUFF ####
+svc_tsc_gen:
+  max_workers: None
+  default_wait_close_time: 2700
+  wait_recheck_time: 10
+  optimal_block_num_values: 131072
+  # If you want it to create a new dataset on startup (good for dev)
+  create_dataset: True
+  interval_index_mode: "merge"
+  metadb_connection: metadb
+
+#### BACKEND DATABASE ####
+metadb:
+  type: "mariadb" # can be one of ["mysql", "sqlite", "mariadb]
+  host: "mariadb"
+  port: 3306
+  db_name: "atriumdb"
+
+
+#### WAL WRITER STUFF ####
+svc_wal_writer:
+  wal_folder_path: /data/wal
+  # if you havent written to wal_files file in 30 mins close it (1800)
+  idle_timeout: 15
+  # write an hour of data to the file
+  file_length_time: 3600
+  # how often to check for idle files to close (1 min)
+  gc_schedule_min: 1
+  # If you want it to create a new dataset on startup (good for dev)
+  create_dataset: True
+  enable_siri: True
+  inbound_queue: "test_CMF"
+  prefetch_count: 1000
+  metadb_connection: metadb
+
+
+#### RABBITMQ STUFF ####
+# without encryption
+rabbitmq:
+  encrypt: False
+  host: "rabbitMQ"
+  port: 5672
+
+## with encryption
+#rabbitmq:
+#  encrypt: True
+#  host: ""
+#  port: 5671
+#  certificate_path: "/certs/ca_certificate.pem"
+
+
+#### SIRIDB STUFF ####
+siridb:
+  create_default_database: True
+  hosts:
+    - ('siridb', 9000)
+  admin_port: 9080
+  db_name: "testdb"
+  # When reconnecting to Siri wait 1,2,4,8...30 seconds then continue trying to connect every 30 seconds
+  max_wait_retry: 90
+  # Try to connect initially for 15 seconds then throw a timeout error
+  connection_timeout: 15
+  # Data expiration time can be set using the number followed by one of d, h, m or s
+  data_expiration_time: "1d"
+
+##### ADT STUFF ####
+hl7_adt_svc:
+  source_id: 4
+  system_prefix: "ADT"
+  hl7_server_port: 2575
+  encoding: 'cp1252'
+  metadb_connection: metadb
+
+  # Filter Configuration
+  filter:
+    enabled: True
+    message_types:
+      - 'A01'
+      - 'A02'
+      - 'A03'
+      - 'A04'
+      - 'A05'
+      - 'A06'
+      - 'A08'
+      - 'A09'
+      - 'A10'
+      - 'A11'
+      - 'A12'
+      - 'A13'
+      - 'A31'
+      - 'A40'
+      - 'A45'
+    locations:
+      - 'SK PICU'
+      - 'SK CCCU'
+    patient_update_locations:
+      - 'SK OR'
+    class:
+      - 'I/ACUT'
+
+  bed_mappings:
+    'SK CCCU^2053^3': 41
+    'SK CCCU^2053^4': 42
+    'SK CCCU^2053^5': 43
+    'SK CCCU^2053^6': 44
+    'SK CCCU^2053^7': 45
+    'SK CCCU^2053^8': 46
+    'SK CCCU^2059^1': 47
+    'SK CCCU^2060^1': 48
+    'SK CCCU^2063^1': 49
+    'SK PICU^2064^1': 50
+    'SK CCCU^2073^1': 51
+    'SK CCCU^2073^2': 52
+    'SK CCCU^2073^3': 53
+    'SK CCCU^2073^4': 54
+    'SK CCCU^2075^1': 55
+    'SK CCCU^2075^2': 56
+    'SK CCCU^2075^3': 57
+    'SK CCCU^2075^4': 58
+    'SK PICU^2076^1': 59
+    'SK PICU^2076^2': 60
+    'SK PICU^2076^3': 61
+    'SK PICU^2076^4': 62
+    'SK PICU^2080^1': 63
+    'SK PICU^2080^2': 64
+    'SK PICU^2080^3': 65
+    'SK PICU^2080^4': 66
+    'SK PICU^2084^1': 67
+    'SK PICU^2088^1': 68
+    'SK PICU^2093^1': 69
+    'SK PICU^2093^2': 70
+    'SK PICU^2093^3': 71
+    'SK PICU^2093^4': 72
+    'SK CCCU^2094^1': 73
+    'SK CCCU^2094^2': 74
+    'SK CCCU^2094^3': 75
+    'SK CCCU^2094^4': 76
+    'SK PICU^2107^1': 77
+    'SK PICU^2109^1': 78
+    'SK PICU^2110^1': 79
+    'SK PICU^2111^1': 80
+    'SK PICU^2112^1': 81
+    'SK PICU^2113^1': 82
+
+#### SIU STUFF ####
+hl7_siu_svc:
+  source_id: 4
+  system_prefix: "SIU"
+  hl7_server_port: 2575
+  encoding: 'cp1252'
+  metadb_connection: metadb
+
+  filter:
+    message_types:
+      - 'S14'
+
+  bed_mappings:
+    'SK OR A': 107
+    'SK OR B': 108
+    'SK OR C': 130
+    'SK OR D': 109
+    'SK OR E': 110
+    'SK OR F': 111
+    'SK OR G': 112
+    'SK OR H': 113
+    'SK OR J': 114
+    'SK OR K': 115
+    'SK OR L': 116
+    'SK OR M': 117
+    'SK OR N': 118
+    'SK OR O': 119
+    'SK OR P': 120
+    'SK OR Q': 121

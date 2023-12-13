@@ -1,0 +1,59 @@
+loglevel: "info"
+dataset_location: /data
+timezone: 'America/Toronto'
+instance_name: "adb_install_1"
+
+#### WAL WRITER STUFF ####
+svc_wal_writer:
+  wal_folder_path: /data/wal
+  # if you havent written to wal_files file in 30 mins close it (1800)
+  idle_timeout: 15
+  # write an hour of data to the file
+  file_length_time: 3600
+  #how often to check for idle files to close (1 min)
+  gc_schedule_min: 1
+  # If you want it to create a new dataset on startup (good for dev)
+  create_dataset: True
+  enable_siri: True
+  inbound_queue: "test_CMF"
+  prefetch_count: 1000
+  # name of the database connection
+  metadb_connection: metadb
+
+#### RABBITMQ STUFF ####
+# without encryption
+rabbitmq:
+  encrypt: False
+  host: "localhost"
+  port: 5672
+
+
+## with encryption
+#rabbitmq:
+#  encrypt: True
+#  host: ""
+#  port: 5671
+#  certificate_path: "ca_certificate.pem"
+
+#### SIRIDB STUFF ####
+siridb:
+  enable: True
+  create_default_database: True
+  hosts:
+    - ('localhost', 9000)
+  admin_port: 9080
+  db_name: "testdb"
+  # When reconnecting to Siri wait 1,2,4,8...30 seconds then continue trying to connect every 30 seconds
+  max_wait_retry: 90
+  # Try to connect initially for 15 seconds then throw a timeout error
+  connection_timeout: 15
+  # Data expiration time can be set using the number followed by one of d, h, m or s
+  data_expiration_time: "1d"
+
+
+metadb:
+  type: "mariadb" # can be one of ["mysql", "sqlite", "mariadb"]
+  host: "localhost"
+  port: 3306
+  db_name: "atriumdb"
+
