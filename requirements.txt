@@ -6,9 +6,9 @@ databases==0.7.0
 fastapi==0.101.1
 fastapi_auth0==0.3.2
 numpy>=1.21
-opentelemetry-distro==0.36b0
-opentelemetry-exporter-otlp-proto-grpc==1.15.0
-opentelemetry-instrumentation-fastapi==0.40b0
+opentelemetry-distro>=0.42b0
+opentelemetry-exporter-otlp-proto-grpc>=1.21.0
+opentelemetry-instrumentation-fastapi>=0.42b0
 orjson>=3.6
 pydantic==1.10.7
 PyYAML==6.0
