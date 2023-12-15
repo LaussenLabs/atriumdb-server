@@ -12,13 +12,12 @@ def main():
     \033[0m.""")
     parser = argparse.ArgumentParser(prog="atriumdb-server", description="Launches atriumdb-server services")
     parser.add_argument(
-        "-s", "--services", nargs="*", help="List of service(s) to start"
+        "-s", "--service", help="Service to start"
     )
 
     args = parser.parse_args()
     print("Starting Service(s): ")
-    for service in args.services:
-        print(service)
+    print(args.service)
 
 if __name__ == "__main__":
     main()
