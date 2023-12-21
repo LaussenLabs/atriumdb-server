@@ -1,0 +1,70 @@
+#!/bin/bash
+
+#Colors
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+GREEN='\033[0;34m'
+NC='\033[0m' # No Color
+
+printf "${BLUE}\n"
+printf "   _  _       _            ___  ___ \n"
+printf "  /_\| |_ _ _(_)_  _ _ __ |   \| _ )\n"
+printf " / _ \  _| '_| | || | '  \| |) | _ \\ \n"
+printf "/_/ \_\__|_| |_|\_,_|_|_|_|___/|___/\n"                          
+printf "${NC}\n"
+
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --wal-writer)
+      WAL_WRITER=1
+      shift # past argument
+      ;;
+    --tsc-gen)
+      TSC_GEN=1
+      shift # past argument
+      ;;
+    --rest-api)
+      API=1
+      shift # past argument
+      ;;
+    -h|--help)
+      HELP=YES
+      shift # past argument
+      ;;
+    -*|--*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+
+if [[ "$WAL_WRITER" -eq 1 ]]; then
+  printf "Starting Service: ${RED}WAL Writer...${NC}\n"
+  python ./wal_writer/async_wal_writer_siriDB.py
+elif [[ "$TSC_GEN" -eq 1 ]]; then
+  printf "Starting Service: ${RED}TSC Generator...${NC}\n"
+  python ./tsc_generator/src/main.py
+elif [[ "$API" -eq 1 ]]; then
+  printf "Starting Service: ${RED}REST API...${NC}\n"
+else 
+  HELP=YES
+fi
+
+echo "Starting Service: ${SERVICE}"
+echo "HELP      = ${HELP}"
+
+
+#WAL Writer
+#CMD ["python", "./async_wal_writer_siriDB.py"]
+#TSC Generator
+#CMD ["python", "./src/main.py"]
+#Rest API
+#CMD ["uvicorn", "main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "80"]

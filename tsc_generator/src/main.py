@@ -3,7 +3,7 @@ import logging
 from config import config
 
 
-def main():
+def start_tsc_generator():
     # set up logging
     log_level = {"debug": logging.DEBUG, "info": logging.INFO, "warning": logging.WARNING, "error": logging.ERROR,
                  "critical": logging.CRITICAL}
@@ -14,4 +14,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    start_tsc_generator()

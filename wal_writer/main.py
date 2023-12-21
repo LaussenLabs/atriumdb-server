@@ -140,7 +140,7 @@ async def on_message(message: AbstractIncomingMessage):
         processed_counter.add(1)
 
 
-async def main():
+async def start_wal_writer():
     global siri
     global wal
     global atrium_sdk
@@ -217,4 +217,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(start_wal_writer())
