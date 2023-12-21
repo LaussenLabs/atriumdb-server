@@ -1,7 +1,7 @@
-from app.core.config import settings
-from app.api.api_v1.api import api_router
-from app.core.database import database
-from app.core.siri import siri
+from rest_api.app.core.config import settings
+from rest_api.app.api.api_v1.api import api_router
+from rest_api.app.core.database import database
+from rest_api.app.core.siri import siri
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
