@@ -1,3 +1,4 @@
+import os 
 import aio_pika
 from aio_pika.abc import AbstractIncomingMessage
 import orjson
