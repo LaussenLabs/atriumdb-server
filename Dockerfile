@@ -1,11 +1,6 @@
 FROM python:3.10-bookworm
 
-COPY lib /src
-COPY rest_api /src
-COPY tsc_generator /src
-COPY wal_writer /src
-COPY atriumdb-server /src
-COPY requirements.txt /src
+COPY . /src
 
 RUN python -m pip install --root-user-action=ignore -r /src/requirements.txt \
     && python -m pip install --root-user-action=ignore -e /src/lib \
