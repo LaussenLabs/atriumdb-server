@@ -36,7 +36,7 @@ class Config:
                                       'port': self.svc_tsc_gen['metadb_connection']['port']}
 
     def load_config(self, file_name):
-        stream = open(Path(__file__).parent.parent / file_name, 'r')
+        stream = open(f"/{file_name}", 'r')
         data = yaml.load(stream, Loader=yaml.FullLoader)
         config_keys = data.keys()
         # keys (k) will be the non-indented headers such as metadb, svc_tsc_gen ect

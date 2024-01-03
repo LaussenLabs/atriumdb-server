@@ -1,8 +1,8 @@
-from app.core.auth import auth, Auth0User
+from rest_api.app.core.auth import auth, Auth0User
 from typing import Optional, Dict
-from app.core.atriumdb import atriumdb_sdk
+from rest_api.app.core.atriumdb import atriumdb_sdk
 from fastapi import APIRouter, Depends, Security, HTTPException
-import app.schemas as schemas
+import rest_api.app.schemas as schemas
 
 router = APIRouter()
 

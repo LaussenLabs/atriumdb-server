@@ -1,9 +1,9 @@
 from typing import List
 from fastapi import APIRouter, Depends, Security
-from app.core.auth import auth, Auth0User
-from app.core.database import database
-import app.schemas as schemas
-import app.models as models
+from rest_api.app.core.auth import auth, Auth0User
+from rest_api.app.core.database import database
+import rest_api.app.schemas as schemas
+import rest_api.app.models as models
 
 router = APIRouter()
 

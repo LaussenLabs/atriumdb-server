@@ -1,12 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Depends, Security, HTTPException
-from app.core.auth import auth, Auth0User
-from app.core.database import database
-from app.api.api_v1.endpoints.query import get_device_list
-import app.schemas as schemas
-import app.models as models
+from rest_api.app.core.auth import auth, Auth0User
+from rest_api.app.core.database import database
+from rest_api.app.api.api_v1.endpoints.query import get_device_list
+import rest_api.app.schemas as schemas
+import rest_api.app.models as models
 from typing import Dict
-from app.core.atriumdb import atriumdb_sdk
+from rest_api.app.core.atriumdb import atriumdb_sdk
 
 router = APIRouter()
 

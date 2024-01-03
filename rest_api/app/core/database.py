@@ -1,5 +1,5 @@
 import databases
-from app.core.config import settings
+from rest_api.app.core.config import settings
 
 
 database = databases.Database(settings.MARIADB_URI,

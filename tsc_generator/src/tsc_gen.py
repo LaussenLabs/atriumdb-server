@@ -30,7 +30,7 @@ def run_tsc_generator():
     while True:
         with ProcessPoolExecutor(max_workers=config.svc_tsc_gen['max_workers']) as executor:
             ingest_futures = []
-            file_iter = directoryget_file_iter(config.svc_wal_writer['wal_folder_path'])
+            file_iter = get_file_iter(config.svc_wal_writer['wal_folder_path'])
 
             for wal_path in file_iter:
                 future = executor.submit(tsc_generator_process, wal_path)

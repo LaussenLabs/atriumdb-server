@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Security, Response, HTTPException
-from app.core.auth import auth, Auth0User
-from app.core.atriumdb import atriumdb_sdk
+from rest_api.app.core.auth import auth, Auth0User
+from rest_api.app.core.atriumdb import atriumdb_sdk
 from pathlib import Path
 from typing import Optional
 

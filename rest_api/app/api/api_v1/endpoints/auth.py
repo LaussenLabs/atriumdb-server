@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from app.core.config import settings
-import app.schemas as schemas
+from rest_api.app.core.config import settings
+import rest_api.app.schemas as schemas
 router = APIRouter()
 
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.api_v1.endpoints import census, patients, query, sdk, devices, measures, health, auth, intervals
+from rest_api.app.api.api_v1.endpoints import census, patients, query, sdk, devices, measures, health, auth, intervals
 
 api_router = APIRouter()
 api_router.include_router(census.router, prefix="/census", tags=["Census"])

@@ -1,5 +1,5 @@
 from siridb.connector import SiriDBClient
-from app.core.config import settings
+from rest_api.app.core.config import settings
 
 hostlist = []
 for host in settings.SIRIDB_HOSTS:
