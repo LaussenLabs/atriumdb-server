@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+
+  sdb0-0:
+    image: ghcr.io/siridb/siridb-server:2.0.51
+    hostname: sdb0-0
+    networks:
+      - atriumdb-net
+    environment:
+      SIRIDB_SERVER_NAME: "sdb0-0:9010"
+      SIRIDB_HTTP_API_PORT: 9020
+  sdb0-1:
+    image: ghcr.io/siridb/siridb-server:2.0.51
+    hostname: sdb0-1
+    networks:
+      - atriumdb-net
+    environment:
+      SIRIDB_SERVER_NAME: "sdb0-1:9010"
+      SIRIDB_HTTP_API_PORT: 9020
+  sdb1-0:
+    image: ghcr.io/siridb/siridb-server:2.0.51
+    hostname: sdb1-0
+    networks:
+      - atriumdb-net
+    environment:
+      SIRIDB_SERVER_NAME: "sdb1-0:9010"
+      SIRIDB_HTTP_API_PORT: 9020
+  sdb1-1:
+    image: ghcr.io/siridb/siridb-server:2.0.51
+    hostname: sdb1-1
+    networks:
+      - atriumdb-net
+    environment:
+      SIRIDB_SERVER_NAME: "sdb1-1:9010"
+      SIRIDB_HTTP_API_PORT: 9020
+
+networks:
+  atriumdb-net:
+    external: true

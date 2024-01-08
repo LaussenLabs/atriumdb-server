@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+
+  sdb0-0:
+    ports:
+      - 9000:9000
+    volumes:
+      - /mnt/data/sdb/sdb0-0:/var/lib/siridb/
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == atriumdb-uat
+      restart_policy:
+        condition: any # always attempt to restart
+        delay: 5s
+        window: 60s
+  sdb0-1:
+    image: ghcr.io/siridb/siridb-server:2.0.50
+    hostname: sdb0-1
+    networks:
+      - atriumdb-net
+    environment:
+      SIRIDB_SERVER_NAME: "sdb0-1:9010"
+      SIRIDB_HTTP_API_PORT: 9020
+  sdb1-0:
+    volumes:
+      - /mnt/data/sdb/sdb1-0:/var/lib/siridb/
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == atriumdb-uat
+      restart_policy:
+        condition: any # always attempt to restart
+        delay: 5s
+        window: 60s
+  sdb1-1:
+    volumes:
+      - /mnt/data/sdb/sdb1-1:/var/lib/siridb/
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == atriumdb-uat
+      restart_policy:
+        condition: any # always attempt to restart
+        delay: 5s
+        window: 60s
+
+networks:
+  atriumdb-net:
+    external: true
