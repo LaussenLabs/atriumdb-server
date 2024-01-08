@@ -1,20 +1,173 @@
-# Introduction 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
+AtriumDB Server
+=============
+AtriumDB is a high performance time-series database designed for medical device data
 
-# Getting Started
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
-1.	Installation process
-2.	Software dependencies
-3.	Latest releases
-4.	API references
+---------------------------------------
+  * [Prerequisites](#prerequisites)
+  * [Installation](#installation)
+    * [Configure MariaDB](#configure-mariadb)
+    * [Configure SiriDB](#configure-siridb)
+    * [Create Configuration Files](#create-configuration-files)
+      * [Single-Node Configuration](#single-node-configuration)
+      * [Multi-Node Configuration](#single-node-configuration)
+  * [Running AtriumDB](#running-atriumdb) 
+  * [Create or expand a database](#create-or-expand-a-database)
+  * [Using SiriDB](#using-siridb)
+    * [SiriDB Connectors](#siridb-connectors)
+    * [SiriDB HTTP](#siridb-http)
+    * [SiriDB Prompt](#siridb-prompt)
+    * [Grafana](#grafana)
+  * [API/Query language](#query-language)
 
-# Build and Test
-TODO: Describe and show how to build your code and run the tests. 
+---------------------------------------
+## Prerequisites
 
-# Contribute
-TODO: Explain how other users and developers can contribute to make your code better. 
+> :bulb: **Tip:** Remember to appreciate the little things in life.
 
-If you want to learn more about creating good readme files then refer the following [guidelines](https://docs.microsoft.com/en-us/azure/devops/repos/git/create-a-readme?view=azure-devops). You can also seek inspiration from the below readme files:
-- [ASP.NET Core](https://github.com/aspnet/Home)
-- [Visual Studio Code](https://github.com/Microsoft/vscode)
-- [Chakra Core](https://github.com/Microsoft/ChakraCore)
+## Installation
+### Docker Swarm 
+For Ubuntu we have a deb package available which can be downloaded [here](https://github.com/SiriDB/siridb-server/releases/latest).
+
+Note: SiriDB requires *libexpat1*, *libuv1*, *libpcre2-8-0* and *libcleri0* these libraries can be easily installed using apt:
+```
+apt install libexpat1 libuv1 libpcre2-8-0 libcleri0
+```
+
+>Library `libcleri0` is available from Ubuntu 18.04, for older versions a deb package can be found here:
+>https://github.com/cesbit/libcleri/releases/latest
+
+The .deb package installs a configuration file at `/etc/siridb/siridb.conf`. You might want to view or change this file before starting SiriDB.
+
+### Compile from source
+>From version 2.0.19 libcleri is not included as part of this source anymore
+>and needs to be installed separately. libcleri can be found here:
+>[https://github.com/cesbit/libcleri](https://github.com/cesbit/libcleri)
+>or can be installed using `apt`.
+
+#### Linux
+Install the following requirements: (Ubuntu 18.04)
+```
+sudo apt install libcleri-dev
+sudo apt install libpcre2-dev
+sudo apt install libuv1-dev
+sudo apt install libyajl-dev
+sudo apt install uuid-dev
+```
+
+Compile (replace Release with Debug for a debug build):
+```
+cd ./Release
+make clean
+make test
+make
+```
+
+Install
+```
+sudo make install
+```
+
+#### OSX
+>Make sure [libcleri](https://github.com/cesbit/libcleri) is installed!
+
+Install the following requirements:
+```
+brew install pcre2
+brew install libuv
+brew install yajl
+brew install ossp-uuid
+```
+Compile (replace Release with Debug for a debug build):
+```
+cd ./Release
+export CFLAGS="-I/usr/local/include"
+export LDFLAGS="-L/usr/local/lib"
+make clean
+make test
+make
+```
+
+Install
+```
+sudo make install
+```
+
+#### Docker
+
+```bash
+docker run \
+    -d \
+    -p 9000:9000 \
+    -p 9080:9080 \
+    -p 8080:8080 \
+    -v ~/siridb-data:/var/lib/siridb \
+    ghcr.io/siridb/siridb-server:latest    
+```
+
+#### Configuration
+SiriDB accepts a configuration file or environment variable as configuration. By default SiriDB will search for the configuration file in `/etc/siridb/siridb.conf` but alternatively you can specify a custom path by using the `-c/--config` argument or use environment variable.
+
+An example configuration file can be found here:
+[https://github.com/SiriDB/siridb-server/blob/master/siridb.conf](https://github.com/SiriDB/siridb-server/blob/master/siridb.conf)
+
+### Build Debian package:
+
+Install required packages (*autopkgtest is required for running the tests*)
+```
+apt-get install devscripts lintian help2man autopkgtest
+```
+
+Create archive
+```
+git archive -o ../siridb-server_2.0.31.orig.tar.gz master
+```
+
+Run tests
+```
+autopkgtest -B -- null
+```
+
+Build package
+```
+debuild -us -uc
+```
+
+## Run integration tests
+The simplest way to run the integration tests is to use [docker](https://docs.docker.com/install/).
+
+Build integration test image
+```
+docker build -t siridb/itest -f itest/Dockerfile .
+```
+
+Run integration tests
+```
+docker run siridb/itest:latest
+```
+
+## Create or expand a database
+[SiriDB Admin](https://github.com/SiriDB/siridb-admin) can be used for creating a new database or expanding an existing database with a new server. Documentation on how to install and use the admin tool can be found at the [siridb-admin](https://github.com/SiriDB/siridb-admin#readme) github project. Binaries are available for most platforms and can be downloaded from [here](https://github.com/SiriDB/siridb-admin/releases/latest). As an alternative it is possible to use a simple [HTTP API](https://docs.siridb.net/connect/http_api/) for creating or expanding a SiriDB database.
+
+## Using SiriDB
+SiriDB has several tools available to connect to a SiriDB database.
+
+### SiriDB Connectors
+The following native connectors are available:
+ - [C/C++](https://github.com/SiriDB/libsiridb#readme)
+ - [Python](https://github.com/SiriDB/siridb-connector#readme)
+ - [Go](https://github.com/SiriDB/go-siridb-connector#readme)
+ - [Node.js](https://github.com/SiriDB/siridb-nodejs-addon#readme)
+
+When not using one of the above, you can still communicate to SiriDB using [SiriDB HTTP](#siridb-http).
+
+### SiriDB HTTP
+[SiriDB HTTP](https://github.com/SiriDB/siridb-http#readme) provides a HTTP API for SiriDB and has support for JSON, MsgPack, Qpack, CSV and Socket.io. SiriDB HTTP also has an optional web interface and SSL support.
+
+### SiriDB Prompt
+[SiriDB Prompt](https://github.com/SiriDB/siridb-prompt#readme) can be used as a command line SiriDB client with auto-completion support and can be used to load json or csv data into a SiriDB database. Click [here](https://github.com/SiriDB/siridb-prompt/blob/master/README.md) for more information about SiriDB Prompt.
+
+### Grafana
+[SiriDB Grafana Datasource](https://github.com/SiriDB/grafana-siridb-http-datasource#readme) is a plugin for Grafana. See the following blog article on how to configure and use this plugin: https://github.com/SiriDB/grafana-siridb-http-example.
+
+## Query language
+Documentation about the query language can be found at https://siridb.net/documentation.

@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  tsc:
+    image: atriumdb/atriumdb-server:1.0.0RC2
+    command: ./atriumdb-server --tsc-gen
+    volumes:
+      - atriumdb-meta:/data/meta
+      - atriumdb-tsc:/data/tsc
+      - atriumdb-wal:/data/wal
+    configs:
+      - source: config.yaml
+        target: /config.yaml
+        mode: 0440
+    secrets:
+      - source: secrets.yaml
+        target: /secrets.yaml
+        mode: 0440
+    networks:
+      - atriumdb-net
+      - telemetry-net
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://telemetry_otel-collector:4317"
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == atriumdb-uat02
+      restart_policy:
+        condition: any # always attempt to restart
+        delay: 5s
+        window: 60s
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+        reservations:
+          cpus: "2"
+          memory: 4G
+  wal:
+    image: atriumdb/atriumdb-server:1.0.0RC2
+    command: ./atriumdb-server --wal-writer
+    configs:
+      - source: config.yaml
+        target: /config.yaml
+        mode: 0440
+    secrets:
+      - source: secrets.yaml
+        target: /secrets.yaml
+        mode: 0440
+    networks:
+      - atriumdb-net
+      - telemetry-net
+    volumes:
+      - atriumdb-meta:/data/meta
+      - atriumdb-tsc:/data/tsc
+      - atriumdb-wal:/data/wal
+      - atriumdb-certs:/certs
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://telemetry_otel-collector:4317"
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == atriumdb-uat02
+      restart_policy:
+        condition: any # always attempt to restart
+        delay: 5s
+        window: 60s
+      resources:
+        limits:
+          cpus: "1"
+          memory: 0.5G
+        reservations:
+          cpus: "1"
+          memory: 0.5G
+  api:
+    image: atriumdb/atriumdb-server:1.0.0RC2
+    command: ./atriumdb-server --rest-api
+    env_file:
+     - api.env
+    ports:
+      # Listen on port 80, default for HTTP, necessary to redirect to HTTPS
+      - target: 80
+        published: 81
+        mode: host
+    networks:
+      - atriumdb-net
+      - telemetry-net
+    volumes:
+      - atriumdb-tsc:/data/tsc
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == atriumdb-uat02
+  
+secrets:
+  tls.key:
+    external: true
+  tls.crt:
+    external: true
+  secrets.yaml:
+    file: ./secrets.yaml
+
+
+configs:
+  config.yaml:
+    file: ./config.yaml
+
+networks:
+  atriumdb-net:
+    external: true
+  telemetry-net:
+    external: true
+
+# external:true means the resource is not managed by compose and it already exists externally (need to point to it in
+# volumes section of tsc-generator, wal-writer, siridb and mariadb)
+volumes:
+  atriumdb-meta:
+  atriumdb-tsc:
+  atriumdb-wal:
+  atriumdb-certs:
+    driver: local
+    driver_opts:
+        type: nfs
+        o: addr=172.25.29.20,ro
+        device: ":/vol-uat-atriumdb-certs"
+                                             
