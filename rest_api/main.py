@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+# import uvicorn
 
 # set up logging
 log_level = {"debug": logging.DEBUG, "info": logging.INFO, "warning": logging.WARNING, "error": logging.ERROR,
@@ -37,3 +38,7 @@ async def shutdown():
 
 FastAPIInstrumentor.instrument_app(app)
 app.include_router(api_router, prefix="/v1")
+
+# for debugging
+# if __name__ == "__main__":
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
