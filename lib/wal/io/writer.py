@@ -73,18 +73,18 @@ class WALWriter:
             struct.pack("<qqII",
                         int(start_time_nominal), int(start_time_server), int(num_values), int(null_offset)))
         self.current_file_pointer.write(values.tobytes())
-        self.current_file_pointer.flush()
+        # self.current_file_pointer.flush()
 
     def write_time_value_pair_message(self, time_nominal: int, time_server: int, value: Union[int, float]):
         assert self.value_struct_char is not None
         self.current_file_pointer.write(
             struct.pack("<qq" + self.value_struct_char,
                         int(time_nominal), int(time_server), self.value_py_type(value)))
-        self.current_file_pointer.flush()
+        # self.current_file_pointer.flush()
 
     def write_wal_data(self, wal_data: WALData):
         self.current_file_pointer.write(wal_data.byte_arr.tobytes())
-        self.current_file_pointer.flush()
+        # self.current_file_pointer.flush()
 
     def flush(self):
         self.current_file_pointer.flush()

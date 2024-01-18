@@ -1,7 +1,7 @@
 import os 
 import aio_pika
 from aio_pika.abc import AbstractIncomingMessage
-import orjson
+import ujson
 import asyncio
 from siridb.connector import SiriDBClient
 from walwriter.siridb_admin_tool import SiriDBAdmin
@@ -28,8 +28,12 @@ logging.basicConfig(level=log_level[config.loglevel.lower()])
 _LOGGER = logging.getLogger(__name__)
 
 # start wal file manager which will actually write the wal files to disk
-wal = WALFileManager(path=config.svc_wal_writer['wal_folder_path'], file_length_time=config.svc_wal_writer['file_length_time'],
-                     idle_timeout=config.svc_wal_writer['idle_timeout'], gc_schedule_min=config.svc_wal_writer['gc_schedule_min'])
+wal = WALFileManager(path=config.svc_wal_writer['wal_folder_path'], 
+                     file_length_time=config.svc_wal_writer['file_length_time'],
+                     idle_timeout=config.svc_wal_writer['idle_timeout'],
+                     gc_schedule_min=config.svc_wal_writer['gc_schedule_min'],
+                     flush_max_points=config.svc_wal_writer['flush_max_points'],
+                     flush_max_seconds=config.svc_wal_writer['flush_max_seconds'])
 
 if config.svc_wal_writer['create_dataset']:
     AtriumSDK.create_dataset(dataset_location=config.dataset_location, database_type=config.svc_wal_writer['metadb_connection']['type'],
@@ -59,8 +63,8 @@ async def on_message(message: AbstractIncomingMessage):
 
         # attempt to parse the message into json dictionary
         try:
-            data = orjson.loads(message.body)
-        except orjson.JSONDecodeError:
+            data = ujson.loads(message.body)
+        except Exception:
             await message.nack()
             _LOGGER.error("Error parsing json nacking message", exc_info=True)
             exception_counter.add(1)

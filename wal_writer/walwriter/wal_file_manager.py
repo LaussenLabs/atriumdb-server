@@ -1,4 +1,3 @@
-import orjson
 import numpy as np
 import atexit
 import random
@@ -6,9 +5,12 @@ import time
 import threading
 import logging
 import xxhash
+import functools
 from apscheduler.schedulers.background import BackgroundScheduler
 from wal import WALWriter, ValueType, ValueMode, ScaleType, get_null_header_dictionary
 from helpers.metrics import get_metric, WALWRITER_WAL_FILES_OPEN, WALWRITER_WAL_FILES_CREATED
+
+from wal.io.header_structure import  get_header_structure_from_dict
 
 
 class WALFileManager:
@@ -16,12 +18,15 @@ class WALFileManager:
     pool = {}
     lock = threading.Lock()
 
-    def __init__(self, path: str, file_length_time: int, idle_timeout: int, gc_schedule_min: int):
+    def __init__(self, path: str, file_length_time: int, idle_timeout: int, 
+                 gc_schedule_min: int, flush_max_points: int = 5000, flush_max_seconds: int = 120):
 
         self._LOGGER = logging.getLogger(__name__)
         self.path = path
         self.idle_timeout = idle_timeout
         self.file_length_time = file_length_time
+        self.flush_max_points = flush_max_points
+        self.flush_max_seconds = flush_max_seconds
         self.scheduler = BackgroundScheduler(daemon=True)
         self.scheduler.add_job(func=self._gc, trigger="interval", minutes=gc_schedule_min)
         self.scheduler.start()
@@ -40,11 +45,16 @@ class WALFileManager:
         with self.lock:
             file = self._get_file(meta_data=header)
             if header["mode"] == ValueMode.INTERVALS.value:
-                file.write_interval_message(start_time_nominal=int(data_time_ns), start_time_server=int(server_time_ns),
+                file["handle"].write_interval_message(start_time_nominal=int(data_time_ns), start_time_server=int(server_time_ns),
                                             values=values)
+                file["unflushed_points"] += values.size
             else:
-                file.write_time_value_pair_message(time_nominal=int(data_time_ns), time_server=int(server_time_ns),
+                file["handle"].write_time_value_pair_message(time_nominal=int(data_time_ns), time_server=int(server_time_ns),
                                                    value=values)
+                file["unflushed_points"] += 1
+            
+            if self._is_flushable(file):
+                self._flush(file)
 
     def parse_header(self, device_name: str, msg_type: str, measure_name: str, data_time_ns: int, measure_units: str,
                      freq: float, data: str, meta_data: dict = None):
@@ -102,13 +112,16 @@ class WALFileManager:
             self._create_and_register(meta_data)
 
         self.pool[key]["last_access"] = time.time()
-        return self.pool[key]["handle"]
-
+        return self.pool[key]
+    
     def _hash_metadata(self, meta_data: dict):
         # convert any values that are bytes in the dictionary to string so it can serialize
+        header = bytearray(get_header_structure_from_dict(meta_data))
+        return xxhash.xxh3_128(header).hexdigest()
+        """
         meta = {k: v.decode('utf-8') if type(v) == bytes else v for k, v in meta_data.items()}
-
         return xxhash.xxh3_128(orjson.dumps(meta, option=orjson.OPT_SORT_KEYS)).hexdigest()
+        """
 
     # generates the name of the files
     def _get_file_name(self, meta_data: dict) -> str:
@@ -128,11 +141,22 @@ class WALFileManager:
             "file_name": file_name,
             "file_path": '/'.join((self.path, file_name)),
             "handle": writer,
-            "last_access": time.time()
+            "last_access": time.time(),
+            "unflushed_points": 0,
+            "next_flush": time.time() + self.flush_max_seconds
         }
         self.pool[key] = entry
         self.open_wal_file_counter.add(1)
         self.wal_files_created_counter.add(1)
+
+    def _is_flushable(self, file_ref):
+        return (file_ref["unflushed_points"] >= self.flush_max_points) or (file_ref["next_flush"] <= time.time() and file_ref["unflushed_points"] != 0)
+
+    def _flush(self, file_ref):
+        file_ref["handle"].flush()
+        file_ref["next_flush"] = time.time() + self.flush_max_seconds
+        file_ref["unflushed_points"] = 0
+        self._LOGGER.info(f"Flushing: {file_ref['file_name']}")
 
     # garbage collect stale file handles
     def _gc(self):
@@ -140,7 +164,8 @@ class WALFileManager:
         with self.lock:
             keys = tuple(self.pool.keys())
             for key in keys:
-                self.pool[key]["handle"].flush()
+                if self._is_flushable(self.pool[key]):
+                    self._flush(self.pool[key])
                 if time.time() - self.pool[key]["last_access"] >= self.idle_timeout:
                     self._LOGGER.info("Closing: {}".format(self.pool[key]["file_path"]))
                     self.pool[key]["handle"].close()
