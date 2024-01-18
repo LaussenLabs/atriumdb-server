@@ -153,7 +153,14 @@ class WALData:
     def _interpret_time_value_pairs(self):
         data_type = self._get_time_value_data_type()
 
-        self.data = np.frombuffer(self.byte_arr[header_size:], dtype=data_type)
+        body_arr = self.byte_arr[header_size:]
+        # Truncate files that ended mid message.
+        data_remainder = body_arr.size % data_type.itemsize
+        if data_remainder != 0:
+            extra_bytes = body_arr[-data_remainder:]
+            body_arr = body_arr[:-data_remainder]
+
+        self.data = np.frombuffer(body_arr, dtype=data_type)
 
         self.time_data = self.data["nominal_time"]
         self.server_time_data = self.data["server_time"]
@@ -169,7 +176,14 @@ class WALData:
     def _interpret_intervals(self):
         data_type = self._get_interval_data_type()
 
-        self.data = np.frombuffer(self.byte_arr[header_size:], dtype=data_type)
+        body_arr = self.byte_arr[header_size:]
+        # Truncate files that ended mid message.
+        data_remainder = body_arr.size % data_type.itemsize
+        if data_remainder != 0:
+            extra_bytes = body_arr[-data_remainder:]
+            body_arr = body_arr[:-data_remainder]
+
+        self.data = np.frombuffer(body_arr, dtype=data_type)
 
         self.time_data = self.data["start_time_nominal"]
         self.server_time_data = self.data["start_time_server"]
