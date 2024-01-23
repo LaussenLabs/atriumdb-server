@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, Security, Response, HTTPException, WebSocket, WebSocketDisconnect, WebSocketException
+from fastapi import APIRouter, Depends, Response, Security, HTTPException, WebSocket, WebSocketDisconnect, WebSocketException
 from rest_api.app.core.auth import auth, Auth0User
 from rest_api.app.core.atriumdb import atriumdb_sdk
+from rest_api.app.core.config import settings
 from atriumdb import adb_functions
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Annotated
 from collections import Counter
+from rest_api.app.core.authorization.dependencies import validate_token
+import time
 
 router = APIRouter()
 
@@ -35,8 +38,7 @@ async def get_blocks(
         patient_id: Optional[int] = None,
         mrn: Optional[str] = None,
         device_id: Optional[int] = None,
-        # user: Auth0User = Security(auth.get_user)
-):
+        user: Auth0User = Security(auth.get_user)):
     # BASE VALIDATION
     if measure_id is None:
         raise HTTPException(status_code=400, detail="A measure_id must be specified")
@@ -78,10 +80,7 @@ async def get_blocks(
 
 
 @router.get("/blocks/{block_id}", dependencies=[Depends(auth.implicit_scheme)])
-async def get_block(
-        block_id: int,
-        #user: Auth0User = Security(auth.get_user)
-):
+async def get_block(block_id: int, user: Auth0User = Security(auth.get_user)):
     # Get block_info using block_id from sql table
     block_info = atriumdb_sdk.sql_handler.select_block(block_id=block_id)
 
@@ -104,11 +103,10 @@ async def get_block(
         return Response(file.read(block_info[5]))
 
 
-@router.websocket("/ws/blocks")
-async def websocket_endpoint(
-        websocket: WebSocket,
-        # user: Auth0User = Security(auth.get_user)
-):
+@router.websocket("/blocks/ws")
+async def websocket_endpoint(websocket: WebSocket, token: Annotated[dict, Depends(validate_token)]):
+    # get the expiry date of the jwt
+    token_exp = token['exp']
 
     await manager.connect(websocket)
     try:
@@ -116,32 +114,33 @@ async def websocket_endpoint(
             # wait for the sdk to send the block_id its looking for
             block_ids = await websocket.receive_text()
 
+            # check if the client token is expired
+            if token_exp < time.time():
+                # let the client know their token is expired and end the connection
+                await websocket.send_text('expired_token')
+                manager.disconnect(websocket)
+
             # split the comma delimited string into the block id's
             block_ids = block_ids.split(',')
 
             try:
                 # Get block_info using block_ids from sql table
                 block_list = atriumdb_sdk.sql_handler.select_blocks_by_ids(block_id_list=block_ids)
-                print(block_list)
             except RuntimeError as e:
                 # if not all block_ids are found in atriumdb a runtime error will be raised
                 raise WebSocketException(code=1011, reason=f"{e}")
 
             # combine file reads for continuous blocks so you don't have to open files as much
             block_read_list = adb_functions.condense_byte_read_list(block_list)
-            # print(block_read_list)
 
             # get number of times each file needs to be read by seeing how many times a file_id appears in the read list
             file_read_counts = Counter([block[2] for block in block_read_list])
-            # print(file_read_counts)
 
             # map the file-ids to the actual names of the files
             filename_dict = atriumdb_sdk.get_filename_dict(list(file_read_counts.keys()))
-            # print(filename_dict)
 
             # find which measure_id, device_id combo each file belongs too, by finding the first match in the block_list
             measure_device_ids = {file_id: next((block[1], block[2]) for block in block_list if block[3] == file_id) for file_id in list(file_read_counts.keys())}
-            # print(measure_device_ids)
 
             tsc_file_paths = {}
             # check to make sure the filenames exist on the server and if they do find the path
@@ -153,7 +152,7 @@ async def websocket_endpoint(
                     raise WebSocketException(code=1011, reason=f"Path to {filename} not found.")
 
             # the max number of bytes we want to read at a time so we don't overwhelm the server
-            max_read_bytes = 10_000_000
+            max_read_bytes = settings.MAX_WEBSOCKET_FRAGMENT_SIZE
             total_num_bytes = sum([num_bytes for _, _, _, _, num_bytes in block_read_list])
 
             # if the number of bytes requested is less than the max read size make the buffer the size of the message

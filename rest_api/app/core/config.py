@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     WAVES_MAX_TIME: int = 120
     # Crossover time between SiriDB and AtriumDB (hours)
     XOVER_TIME: int = 720  # 30 days
+    # the max size in bytes that the api will pull from AtriumDB before sending and moving onto the next fragment
+    MAX_WEBSOCKET_FRAGMENT_SIZE: int = 10_000_000
 
     class Config:
         secrets_dir = '../'
