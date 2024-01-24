@@ -19,3 +19,4 @@ SQLAlchemy==1.4.46
 uvicorn==0.23.2
 xxhash~=3.2.0
 PyJWT>=2.8.0
+python-dotenv~=0.21.1
