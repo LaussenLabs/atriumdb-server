@@ -7,6 +7,7 @@ from helpers.metrics import (get_metric,
                              TSCGENERATOR_ERRORS,
                              TSCGENERATOR_DEVICES_INSERTED,
                              TSCGENERATOR_MEASURES_INSERTED)
+
 TSC_VERSION_NUM = 2
 TSC_VERSION_EXT = 3
 TSC_NUM_CHANNELS = 1
@@ -31,6 +32,13 @@ def write_wal_data_to_sdk(wal_data, sdk):
     errors_counter = get_metric(TSCGENERATOR_ERRORS)
     devices_inserted_counter = get_metric(TSCGENERATOR_DEVICES_INSERTED)
     measures_inserted_counter = get_metric(TSCGENERATOR_MEASURES_INSERTED)
+
+    # Check for corrupted messages and trim before ingesting.
+    error_code = trim_corrupt_data(wal_data)
+    if error_code == -1:
+        _LOGGER.error(f"wal_data.header.mode, {wal_data.header.mode} not one of allowed values: "
+                      f"{[member.value for member in ValueMode]}")
+        return -1
 
     h = wal_data.header
 
@@ -85,3 +93,30 @@ def write_wal_data_to_sdk(wal_data, sdk):
         scale_b=h.scale_0, scale_m=h.scale_1, interval_index_mode=config.svc_tsc_gen['interval_index_mode'])
 
     return 0
+
+
+def trim_corrupt_data(wal_data):
+    if wal_data.header.mode == ValueMode.TIME_VALUE_PAIRS.value:
+        return 0
+    elif wal_data.header.mode == ValueMode.INTERVALS.value:
+        for i in range(wal_data.message_sizes.size):
+            message_size = wal_data.message_sizes[i]
+            null_offset = wal_data.null_offsets[i]
+
+            if message_size > wal_data.header.samples_per_message or \
+                    null_offset > wal_data.header.samples_per_message:
+                _LOGGER.warning(f"Detecting corrupt interval wal data at message {i}\n "
+                                f"ingesting data before corruption.")
+                truncate_interval_wal_data_upto_message(wal_data, i)
+                return 0
+
+    return -1
+
+
+def truncate_interval_wal_data_upto_message(wal_data, first_corrupt_message_index):
+    wal_data.time_data = wal_data.time_data[:first_corrupt_message_index]
+    wal_data.server_time_data = wal_data.server_time_data[:first_corrupt_message_index]
+
+    wal_data.value_data = wal_data.value_data[:first_corrupt_message_index]
+    wal_data.message_sizes = wal_data.message_sizes[:first_corrupt_message_index]
+    wal_data.null_offsets = wal_data.null_offsets[:first_corrupt_message_index]
