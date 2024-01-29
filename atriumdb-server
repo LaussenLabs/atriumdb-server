@@ -54,7 +54,7 @@ elif [[ "$TSC_GEN" -eq 1 ]]; then
   python ./tsc_generator/src/main.py
 elif [[ "$API" -eq 1 ]]; then
   printf "Starting Service: ${RED}REST API...${NC}\n"
-  uvicorn rest_api.main:app --proxy-headers --host 0.0.0.0 --port 80
+  uvicorn rest_api.main:app --proxy-headers --host 0.0.0.0 --port 80 --ws-per-message-deflate False
 else 
   HELP=YES
 fi
