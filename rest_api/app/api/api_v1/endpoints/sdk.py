@@ -100,7 +100,7 @@ async def get_block(block_id: int, user: Auth0User = Security(auth.get_user)):
         # Search the file to find the start byte from the block_info
         file.seek(block_info[4])
         # read from the start byte to the end byte in the file and return it
-        return Response(file.read(block_info[5]))
+        return Response(file.read(block_info[5]), media_type="application/octet-stream")
 
 
 @router.websocket("/blocks/ws")
