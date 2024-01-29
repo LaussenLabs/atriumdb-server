@@ -1,11 +1,10 @@
-from typing import List
+from typing import List, Dict
 from fastapi import APIRouter, Depends, Security, HTTPException
 from rest_api.app.core.auth import auth, Auth0User
 from rest_api.app.core.database import database
 from rest_api.app.api.api_v1.endpoints.query import get_device_list
 import rest_api.app.schemas as schemas
 import rest_api.app.models as models
-from typing import Dict
 from rest_api.app.core.atriumdb import atriumdb_sdk
 
 router = APIRouter()
