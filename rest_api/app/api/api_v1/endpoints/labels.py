@@ -1,5 +1,5 @@
 from rest_api.app.core.auth import auth, Auth0User
-from typing import Optional, List, Union, Dict
+from typing import Optional, List, Dict
 from rest_api.app.core.atriumdb import atriumdb_sdk
 from fastapi import APIRouter, Depends, Security, HTTPException
 import rest_api.app.schemas as schemas
@@ -7,7 +7,7 @@ import rest_api.app.schemas as schemas
 router = APIRouter()
 
 
-# @router.get("/", dependencies=[Depends(auth.implicit_scheme)], response_model=Dict[int, schemas.Label])
+# @router.post("/", dependencies=[Depends(auth.implicit_scheme)], response_model=List[schemas.Label])
 @router.post("/", response_model=List[schemas.Label])
 async def search_labels(body: schemas.LabelsQuery):
         #user: Auth0User = Security(auth.get_user)):
@@ -39,12 +39,31 @@ async def search_labels(body: schemas.LabelsQuery):
     return labels
 
 
-# @router.get("/names", dependencies=[Depends(auth.implicit_scheme)], response_model=Dict[int, str])
-@router.get("/name", response_model=Dict[int, schemas.LabelName])
-async def get_all_label_names(label_name_id: int = None, label_name: str = None):#, user: Auth0User = Security(auth.get_user)):
+# @router.get("/source", dependencies=[Depends(auth.implicit_scheme)], response_model=int | schemas.LabelSource | None)
+@router.get("/source", response_model=int | schemas.LabelSource | None)
+async def get_label_source(label_source_id: Optional[int] = None, label_source_name: Optional[str] = None):#, user: Auth0User = Security(auth.get_user)):
+
+    if label_source_id and label_source_name:
+        raise HTTPException(status_code=400, detail="Only one of label_source_id or label_source_name should be provided.")
+
+    if label_source_id is None and label_source_name is None:
+        raise HTTPException(status_code=400, detail="At least one of label_source_id or label_source_name should be provided.")
+
+    if label_source_id is not None:
+        return atriumdb_sdk.get_label_source_info(label_source_id=label_source_id)
+    if label_source_name is not None:
+        return atriumdb_sdk.get_label_source_id(name=label_source_name)
+
+
+# @router.get("/name", dependencies=[Depends(auth.implicit_scheme)], response_model=int | schemas.LabelName | None)
+@router.get("/name", response_model=int | schemas.LabelName | None)
+async def get_label_name(label_name_id: Optional[int] = None, label_name: Optional[str] = None):#, user: Auth0User = Security(auth.get_user)):
 
     if label_name_id and label_name:
         raise HTTPException(status_code=400, detail="Only one of label_name_id or label_name should be provided.")
+
+    if label_name_id is None and label_name is None:
+        raise HTTPException(status_code=400, detail="At least one of label_name_id or label_name should be provided.")
 
     if label_name_id is not None:
         return atriumdb_sdk.get_label_name_info(label_name_id=label_name_id)
@@ -52,21 +71,8 @@ async def get_all_label_names(label_name_id: int = None, label_name: str = None)
         return atriumdb_sdk.get_label_name_id(name=label_name)
 
 
-# @router.get("/names", dependencies=[Depends(auth.implicit_scheme)], response_model=Dict[int, str])
+# @router.get("/names", dependencies=[Depends(auth.implicit_scheme)], response_model=Dict[int, schemas.LabelName])
 @router.get("/names", response_model=Dict[int, schemas.LabelName])
 async def get_all_label_names(limit: int = 1000, offset: int = 0):#, user: Auth0User = Security(auth.get_user)):
     return atriumdb_sdk.get_all_label_names(limit=limit, offset=offset)
-
-
-# @router.get("/names", dependencies=[Depends(auth.implicit_scheme)], response_model=Dict[int, str])
-@router.get("/source", response_model=Dict[int, schemas.LabelName])
-async def get_all_label_names(label_source_id: int = None, label_source_name: str = None):#, user: Auth0User = Security(auth.get_user)):
-
-    if label_source_id and label_source_name:
-        raise HTTPException(status_code=400, detail="Only one of label_source_id or label_source_name should be provided.")
-
-    if label_source_id is not None:
-        return atriumdb_sdk.get_label_source_info(label_source_id=label_source_id)
-    if label_source_name is not None:
-        return atriumdb_sdk.get_label_source_id(name=label_source_name)
 

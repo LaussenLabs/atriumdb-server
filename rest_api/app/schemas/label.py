@@ -7,6 +7,12 @@ class LabelName(BaseModel):
     name: str
 
 
+class LabelSource(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+
+
 class Label(BaseModel):
     label_id: int
     label_name_id: int
