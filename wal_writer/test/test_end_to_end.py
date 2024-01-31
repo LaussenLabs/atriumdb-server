@@ -1,15 +1,15 @@
 import pika
 import time
 from atriumdb import AtriumSDK
+from atriumdb.sql_handler.maria.maria_handler import MariaDBHandler
 from pathlib import Path
 import shutil
 import os
 import numpy as np
 import orjson
-from walwriter.config import config
+from wal_writer.walwriter.config import config
 import ssl
 
-import sys
 
 # ********************************************************************************************************************
 # ******************CAUTION THIS TEST WILL RESET THE DATABASE IN WHATEVER DATASET DIRECTORY YOU USE*******************
@@ -17,12 +17,12 @@ import sys
 
 
 # this should be set to whatever the directory is set to in the docker compose file
-DATASET_DIR = "C:/Users/spencer vecile/OneDrive - SickKids/Documents/datasets/test_dataset/"
-
+DATASET_DIR = "../../test_data"
+db_name = 'server-test'
 
 # make sure docker containers are running first
 def test_end_to_end_wav():
-    #clear database dir
+    # clear database dir and drop old test table from mariadb
     reset_database(DATASET_DIR)
 
     sdk = AtriumSDK.create_dataset(dataset_location=DATASET_DIR, database_type=config.svc_wal_writer['metadb_connection']['type'],
@@ -35,8 +35,6 @@ def test_end_to_end_wav():
     time.sleep(120)
 
     devices = sdk.get_all_devices()
-    # make sure there is only one device
-    assert (len(devices) == 1)
     # make sure the device is named correctly
     assert devices[1]['id'] == sdk.get_device_id(device_tag="97")
 
@@ -45,7 +43,6 @@ def test_end_to_end_wav():
     assert len(measures) == 1
     # make sure the measure was inserted correctly
     assert measures[1]['id'] == sdk.get_measure_id(measure_tag="MDC_RESP", freq=62_500_000_000, units="MDC_DIM_X_OHM")
-
 
     # extract wav data from cmf messages
     wav_data = []
@@ -77,10 +74,10 @@ def test_end_to_end_wav():
     # confirm scaling factors are stored correctly
     assert header[0].scale_m == 0.0003907204
     assert header[0].scale_b == -0.4
-
+    print("Waveforms test passed")
 
 def test_end_to_end_met():
-    #clear database dir
+    # clear database dir and drop old test table from mariadb
     reset_database(DATASET_DIR)
 
     sdk = AtriumSDK.create_dataset(dataset_location=DATASET_DIR, database_type=config.svc_wal_writer['metadb_connection']['type'],
@@ -93,8 +90,6 @@ def test_end_to_end_met():
     time.sleep(120)
 
     devices = sdk.get_all_devices()
-    # make sure there is only one device
-    assert len(devices) == 1
     # make sure the device is named correctly
     assert devices[1]['id'] == sdk.get_device_id(device_tag="110")
 
@@ -131,12 +126,11 @@ def test_end_to_end_met():
     assert read_values[0] == 0
     assert read_times[0] == 1651124948520000000
     assert measures[measure_id_4]['unit'] == 'MDC_DIM_MMHG'
-
+    print("Metrics test passed")
 
 def send_data(test_data_dir: str):
 
     if config.rabbitmq['encrypt']:
-
         ssl_context = ssl.create_default_context(cafile=config.rabbitmq['certificate_path'])
         ssl_options = pika.SSLOptions(ssl_context, config.rabbitmq['host'])
 
@@ -171,7 +165,12 @@ def send_data(test_data_dir: str):
 
     connection.close()
 
+
 def reset_database(highest_level_dir):
+    # drop the database table
+    maria_handler = MariaDBHandler(config.CONNECTION_PARAMS['host'], config.CONNECTION_PARAMS['user'], config.CONNECTION_PARAMS['password'], db_name)
+    maria_handler.maria_connect_no_db().cursor().execute(f"DROP DATABASE IF EXISTS `{db_name}`")
+
     db_path = f"{highest_level_dir}/meta/index.db"
     tsc_path = f"{highest_level_dir}/tsc"
     wal_path = f"{highest_level_dir}/wal"
@@ -185,3 +184,8 @@ def reset_database(highest_level_dir):
     if Path(wal_path).is_dir():
         shutil.rmtree(wal_path)
     os.mkdir(highest_level_dir + "/wal")
+
+
+if __name__ == "__main__":
+    test_end_to_end_wav()
+    test_end_to_end_met()

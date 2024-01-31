@@ -7,6 +7,7 @@ from tsc_gen_process import tsc_generator_process
 from config import config
 from helpers.metrics import (get_metric,
                              TSCGENERATOR_ERRORS,
+                             TSCGENERATOR_CORRUPTED_WAL_FILE,
                              TSCGENERATOR_PROCESSED_WAL_FILE,
                              TSCGENERATOR_WAL_FILE_EMPTY,
                              TSCGENERATOR_DUPLICATE_WAL_FILE)
@@ -23,7 +24,9 @@ def run_tsc_generator():
 
     # Set up open telemetry metrics
     errors_counter = get_metric(TSCGENERATOR_ERRORS)
-    counter_dict = {0: get_metric(TSCGENERATOR_PROCESSED_WAL_FILE),
+    counter_dict = {-2: get_metric(TSCGENERATOR_ERRORS),
+                    -1: get_metric(TSCGENERATOR_CORRUPTED_WAL_FILE),
+                    0: get_metric(TSCGENERATOR_PROCESSED_WAL_FILE),
                     1: get_metric(TSCGENERATOR_DUPLICATE_WAL_FILE),
                     2: get_metric(TSCGENERATOR_WAL_FILE_EMPTY)}
 

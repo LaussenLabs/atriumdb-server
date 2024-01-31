@@ -1,1 +1,0 @@
-from .src.main import start_tsc_generator

@@ -52,6 +52,7 @@ def _detect_resource_attribute() -> "dict":
 METRIC = "atriumdb.tscgenerator."
 TSCGENERATOR_ERRORS = METRIC + "errors"
 TSCGENERATOR_PROCESSED_WAL_FILE = METRIC + "wal.files.processed"
+TSCGENERATOR_CORRUPTED_WAL_FILE = METRIC + "wal.files.corrupted"
 TSCGENERATOR_WAL_FILE_EMPTY = METRIC + "empty.wal.files"
 TSCGENERATOR_DUPLICATE_WAL_FILE = METRIC + "duplicate.wal.files"
 TSCGENERATOR_DEVICES_INSERTED = METRIC + "devices.inserted"
@@ -101,6 +102,10 @@ def _init_metrics(meter: Meter):
             TSCGENERATOR_WAL_FILE_EMPTY,
             description="number of empty wal files deleted",
         )
+        corrupted_wal_file_counter = meter.create_counter(
+            TSCGENERATOR_CORRUPTED_WAL_FILE,
+            description="number of corrupted wal files",
+        )
         duplicate_wal_file_counter = meter.create_counter(
             TSCGENERATOR_DUPLICATE_WAL_FILE,
             description="number of duplicate wal files deleted",
@@ -117,6 +122,7 @@ def _init_metrics(meter: Meter):
         adapter_metrics = {
             TSCGENERATOR_ERRORS: exception_counter,
             TSCGENERATOR_PROCESSED_WAL_FILE: processed_wal_file_counter,
+            TSCGENERATOR_CORRUPTED_WAL_FILE: corrupted_wal_file_counter,
             TSCGENERATOR_WAL_FILE_EMPTY: empty_wal_file_counter,
             TSCGENERATOR_DUPLICATE_WAL_FILE: duplicate_wal_file_counter,
             TSCGENERATOR_DEVICES_INSERTED: devices_inserted_counter,

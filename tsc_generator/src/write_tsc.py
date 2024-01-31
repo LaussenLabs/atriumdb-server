@@ -4,7 +4,6 @@ from atriumdb import create_gap_arr
 from wal import ValueMode
 from config import config
 from helpers.metrics import (get_metric,
-                             TSCGENERATOR_ERRORS,
                              TSCGENERATOR_DEVICES_INSERTED,
                              TSCGENERATOR_MEASURES_INSERTED)
 
@@ -29,7 +28,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def write_wal_data_to_sdk(wal_data, sdk):
-    errors_counter = get_metric(TSCGENERATOR_ERRORS)
     devices_inserted_counter = get_metric(TSCGENERATOR_DEVICES_INSERTED)
     measures_inserted_counter = get_metric(TSCGENERATOR_MEASURES_INSERTED)
 
@@ -48,8 +46,7 @@ def write_wal_data_to_sdk(wal_data, sdk):
         measure_id = sdk.get_measure_id(measure_tag=h.measure_name.decode('utf-8'), freq=h.sample_freq, units=h.measure_units.decode('utf-8'))
         if measure_id is None:
             _LOGGER.error("Failed to insert measure into AtriumDB. Measure_tag={}, frequency={}, units={}".format(h.measure_name.decode('utf-8'), h.sample_freq, h.measure_units.decode('utf-8')))
-            errors_counter.add(1)
-            return -1
+            return -2
         else:
             measures_inserted_counter.add(1)
 
@@ -59,10 +56,9 @@ def write_wal_data_to_sdk(wal_data, sdk):
         device_id = sdk.get_device_id(device_tag=h.device_name.decode('utf-8'))
         if device_id is None:
             _LOGGER.error("Failed to insert device into AtriumDB. Device_tag={}".format(h.device_name.decode('utf-8')))
-            devices_inserted_counter.add(1)
-            return -1
+            return -2
         else:
-            measures_inserted_counter.add(1)
+            devices_inserted_counter.add(1)
 
     # if sdk.measure_device_start_time_exists(measure_id, device_id, int(wal_data.time_data[0])):
     #     _LOGGER.warning("Duplicate data detected for measure_id {},  device_id {} and start time {}".format(measure_id, device_id, int(wal_data.time_data[0])))
@@ -75,7 +71,6 @@ def write_wal_data_to_sdk(wal_data, sdk):
     elif h.mode == ValueMode.INTERVALS.value:
         value_data = np.concatenate([v[:wal_data.message_sizes[i]] for i, v in enumerate(wal_data.value_data)], axis=None)
     else:
-        errors_counter.add(1)
         raise ValueError("{} not in {}.".format(h.mode, list(ValueMode)))
 
     if np.issubdtype(value_data.dtype, np.integer):
@@ -109,8 +104,10 @@ def trim_corrupt_data(wal_data):
                                 f"ingesting data before corruption.")
                 truncate_interval_wal_data_upto_message(wal_data, i)
                 return 0
+        return 0
 
-    return -1
+    else:
+        return -1
 
 
 def truncate_interval_wal_data_upto_message(wal_data, first_corrupt_message_index):
