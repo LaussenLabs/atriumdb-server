@@ -5,6 +5,8 @@ from typing import Optional, List
 class LabelName(BaseModel):
     id: int
     name: str
+    parent_id: Optional[int] = None
+    parent_name: Optional[str] = None
 
 
 class LabelSource(BaseModel):
@@ -14,9 +16,11 @@ class LabelSource(BaseModel):
 
 
 class Label(BaseModel):
-    label_id: int
+    label_entry_id: int
     label_name_id: int
     label_name: str
+    requested_name_id: Optional[int] = None
+    requested_name: Optional[str] = None
     device_id: int
     device_tag: str
     patient_id: Optional[int] = None
@@ -28,12 +32,14 @@ class Label(BaseModel):
 
 
 class LabelsQuery(BaseModel):
-    limit: Optional[int] = 1000,
-    offset: Optional[int] = 0,
-    label_name_id_list: Optional[List[int]] = None,
-    name_list: Optional[List[str]] = None,
-    device_list: Optional[List[int | str]] = None,
-    patient_id_list: Optional[List[int]] = None,
-    start_time: Optional[int] = None,
-    end_time: Optional[int] = None,
+    label_name_id_list: Optional[List[int]] = None
+    name_list: Optional[List[str]] = None
+    device_list: Optional[List[int | str]] = None
+    patient_id_list: Optional[List[int]] = None
+    start_time: Optional[int] = None
+    end_time: Optional[int] = None
     time_units: Optional[str] = None
+    include_descendants: Optional[bool] = True
+    limit: Optional[int] = 1000
+    offset: Optional[int] = 0
+
