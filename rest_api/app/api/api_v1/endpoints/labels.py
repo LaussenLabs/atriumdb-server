@@ -7,10 +7,8 @@ import rest_api.app.schemas as schemas
 router = APIRouter()
 
 
-# @router.post("/", dependencies=[Depends(auth.implicit_scheme)], response_model=List[schemas.Label])
-@router.post("/", response_model=List[schemas.Label])
-async def search_labels(body: schemas.LabelsQuery):
-        #user: Auth0User = Security(auth.get_user)):
+@router.post("/", dependencies=[Depends(auth.implicit_scheme)], response_model=List[schemas.Label])
+async def search_labels(body: schemas.LabelsQuery, user: Auth0User = Security(auth.get_user)):
 
     # make sure they arnt asking for too much data at a time
     if body.limit > 1000:
@@ -39,9 +37,8 @@ async def search_labels(body: schemas.LabelsQuery):
     return labels
 
 
-# @router.get("/source", dependencies=[Depends(auth.implicit_scheme)], response_model=int | schemas.LabelSource | None)
-@router.get("/source", response_model=int | schemas.LabelSource | None)
-async def get_label_source(label_source_id: Optional[int] = None, label_source_name: Optional[str] = None):#, user: Auth0User = Security(auth.get_user)):
+@router.get("/source", dependencies=[Depends(auth.implicit_scheme)], response_model=int | schemas.LabelSource | None)
+async def get_label_source(label_source_id: Optional[int] = None, label_source_name: Optional[str] = None, user: Auth0User = Security(auth.get_user)):
 
     if label_source_id and label_source_name:
         raise HTTPException(status_code=400, detail="Only one of label_source_id or label_source_name should be provided.")
@@ -63,9 +60,8 @@ def validate_label_inputs(label_name_id, label_name):
         raise HTTPException(status_code=400, detail="At least one of label_name_id or label_name should be provided.")
 
 
-# @router.get("/name", dependencies=[Depends(auth.implicit_scheme)], response_model=int | schemas.LabelName | None)
-@router.get("/name", response_model=int | schemas.LabelName | None)
-async def get_label_name(label_name_id: Optional[int] = None, label_name: Optional[str] = None):#, user: Auth0User = Security(auth.get_user)):
+@router.get("/name", dependencies=[Depends(auth.implicit_scheme)], response_model=int | schemas.LabelName | None)
+async def get_label_name(label_name_id: Optional[int] = None, label_name: Optional[str] = None, user: Auth0User = Security(auth.get_user)):
     validate_label_inputs(label_name_id, label_name)
 
     if label_name_id is not None:
@@ -74,26 +70,25 @@ async def get_label_name(label_name_id: Optional[int] = None, label_name: Option
         return atriumdb_sdk.get_label_name_id(name=label_name)
 
 
-# @router.get("/names", dependencies=[Depends(auth.implicit_scheme)], response_model=Dict[int, schemas.LabelName])
-@router.get("/names", response_model=Dict[int, schemas.LabelName])
-async def get_all_label_names(limit: int = 1000, offset: int = 0):#, user: Auth0User = Security(auth.get_user)):
+@router.get("/names", dependencies=[Depends(auth.implicit_scheme)], response_model=Dict[int, schemas.LabelName])
+async def get_all_label_names(limit: int = 1000, offset: int = 0, user: Auth0User = Security(auth.get_user)):
     return atriumdb_sdk.get_all_label_names(limit=limit, offset=offset)
 
 
-@router.get("/parent", response_model=schemas.LabelName | None)
-async def get_label_name_parent(label_name_id: Optional[int] = None, label_name: Optional[str] = None):
+@router.get("/parent", dependencies=[Depends(auth.implicit_scheme)], response_model=schemas.LabelName | None)
+async def get_label_name_parent(label_name_id: Optional[int] = None, label_name: Optional[str] = None, user: Auth0User = Security(auth.get_user)):
     validate_label_inputs(label_name_id, label_name)
     return atriumdb_sdk.get_label_name_parent(label_name_id=label_name_id, name=label_name)
 
 
-@router.get("/children", response_model=List[schemas.LabelName])
-async def get_label_name_children(label_name_id: Optional[int] = None, label_name: Optional[str] = None):
+@router.get("/children", dependencies=[Depends(auth.implicit_scheme)], response_model=List[schemas.LabelName])
+async def get_label_name_children(label_name_id: Optional[int] = None, label_name: Optional[str] = None, user: Auth0User = Security(auth.get_user)):
     validate_label_inputs(label_name_id, label_name)
     return atriumdb_sdk.get_label_name_children(label_name_id=label_name_id, name=label_name)
 
 
-@router.get("/descendents", response_model=Dict[str, Any])
-async def get_all_label_name_descendents(label_name_id: Optional[int] = None, label_name: Optional[str] = None, depth: Optional[int] = None):
+@router.get("/descendents", dependencies=[Depends(auth.implicit_scheme)], response_model=Dict[str, Any])
+async def get_all_label_name_descendents(label_name_id: Optional[int] = None, label_name: Optional[str] = None, depth: Optional[int] = None, user: Auth0User = Security(auth.get_user)):
     validate_label_inputs(label_name_id, label_name)
     return atriumdb_sdk.get_all_label_name_descendents(label_name_id=label_name_id, name=label_name, max_depth=depth)
 
