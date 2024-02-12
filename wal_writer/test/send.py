@@ -1,6 +1,6 @@
 import pika
 import ssl
-from walwriter.config import config
+from wal_writer.walwriter.config import config
 def send(test_data_dir: str):
 
     if config.rabbitmq['encrypt']:

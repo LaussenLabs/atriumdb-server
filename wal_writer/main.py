@@ -1,13 +1,15 @@
-import os 
-import aio_pika
-from aio_pika.abc import AbstractIncomingMessage
+import sys
+import signal
+import ssl
 import orjson
 import asyncio
+import aio_pika
+from aio_pika.abc import AbstractIncomingMessage
 from siridb.connector import SiriDBClient
+from time import time
+from logging import getLogger, Formatter, StreamHandler
 from walwriter.siridb_admin_tool import SiriDBAdmin
-import logging
 from walwriter.wal_file_manager import WALFileManager
-import ssl
 from atriumdb import AtriumSDK
 from walwriter.config import config
 from helpers.metrics import (get_metric,
@@ -17,15 +19,16 @@ from helpers.metrics import (get_metric,
                              WALWRITER_ERRORS,
                              WALWRITER_NO_SIRI_CONNECTION,
                              WALWRITER_PROCESSED_MESSAGE_WAVEFORMS,
-                             WALWRITER_PROCESSED_MESSAGE_METRICS,
-                             )
-from time import time
+                             WALWRITER_PROCESSED_MESSAGE_METRICS)
+
 
 # set up logging
-log_level = {"debug": logging.DEBUG, "info": logging.INFO, "warning": logging.WARNING, "error": logging.ERROR,
-             "critical": logging.CRITICAL}
-logging.basicConfig(level=log_level[config.loglevel.lower()])
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = getLogger()
+fmt = Formatter(fmt="%(asctime)s  %(name)s - %(levelname)s %(threadName)s - %(message)s")
+handler = StreamHandler()
+handler.setFormatter(fmt)
+_LOGGER.addHandler(handler)
+_LOGGER.setLevel(config.loglevel.upper())
 
 # start wal file manager which will actually write the wal files to disk
 wal = WALFileManager(path=config.svc_wal_writer['wal_folder_path'], file_length_time=config.svc_wal_writer['file_length_time'],
@@ -143,8 +146,17 @@ async def on_message(message: AbstractIncomingMessage):
 
 async def start_wal_writer():
     global siri
-    global wal
-    global atrium_sdk
+    global connection
+    global channel
+
+    loop = asyncio.get_running_loop()
+    # set up signals for graceful exit
+    for signame in ('SIGTERM', 'SIGHUP', 'SIGINT'):
+        # windows can only handle a few signals and the ones we care about are SIGTERM and SIGINT so skip the rest
+        if (signame != 'SIGTERM' or signame != 'SIGINT') and sys.platform == "win32":
+            continue
+        # use the async version of adding signal handlers so our signal handler function can wait for connections to close
+        loop.add_signal_handler(getattr(signal, signame), lambda: asyncio.create_task(signal_handler(signame)))
 
     # set up connection to rabbitMQ
     if config.rabbitmq['encrypt']:
@@ -213,9 +225,50 @@ async def start_wal_writer():
             _LOGGER.info("Waiting for CMF messages...")
             await asyncio.Future()
         finally:
-            if config.svc_wal_writer['enable_siri']:
-                siri.close()
+            await cleanup()
+
+
+async def cleanup():
+    # close rabbit channel so we don't get any new messages
+    if not channel.is_closed:
+        await channel.close()
+        _LOGGER.info("RabbitMQ channel closed")
+
+    # close rabbit connection so we don't get any new messages
+    if connection.connected:
+        await connection.close()
+        _LOGGER.info("RabbitMQ connection closed")
+
+    # shut down the WAL file manager and close all open WAL files
+    wal.close()
+
+    # close siri connection if its still open
+    if config.svc_wal_writer['enable_siri'] and siri.connected:
+        siri.close()
+        _LOGGER.info("SiriDB connection closed")
+
+
+async def signal_handler(signame):
+    _LOGGER.exception(f"Interrupted by {signame}")
+
+    # close all connections and open wal files
+    await cleanup()
+
+    # find all currently running async tasks and cancel them, canceling them will give them an opportunity to catch
+    # the canceled error and cleanup before exiting
+    tasks = [t for t in asyncio.all_tasks() if t is not
+             asyncio.current_task()]
+    _LOGGER.info(tasks)
+    [task.cancel() for task in tasks]
+
+    _LOGGER.info(f"Cancelling {len(tasks)} outstanding tasks")
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 if __name__ == "__main__":
-    asyncio.run(start_wal_writer())
+    try:
+        asyncio.run(start_wal_writer())
+    # this will catch the canceled error from "await asyncio.Future()" in start_wal_writer() function and also the,
+    # loop.run_until_complete(start_wal_writer()) line above
+    except asyncio.exceptions.CancelledError:
+        pass

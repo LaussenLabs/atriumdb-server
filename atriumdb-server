@@ -48,21 +48,13 @@ set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
 if [[ "$WAL_WRITER" -eq 1 ]]; then
   printf "Starting Service: ${RED}WAL Writer...${NC}\n"
-  python ./wal_writer/main.py
+  exec python ./wal_writer/main.py
 elif [[ "$TSC_GEN" -eq 1 ]]; then
   printf "Starting Service: ${RED}TSC Generator...${NC}\n"
-  python ./tsc_generator/src/main.py
+  exec python ./tsc_generator/src/main.py
 elif [[ "$API" -eq 1 ]]; then
   printf "Starting Service: ${RED}REST API...${NC}\n"
-  uvicorn rest_api.main:app --proxy-headers --host 0.0.0.0 --port 80 --ws-per-message-deflate False
+  exec uvicorn rest_api.main:app --proxy-headers --host 0.0.0.0 --port 80 --ws-per-message-deflate False
 else 
   HELP=YES
 fi
-
-
-#WAL Writer
-#CMD ["python", "./async_wal_writer_siriDB.py"]
-#TSC Generator
-#CMD ["python", "./src/main.py"]
-#Rest API
-#CMD ["uvicorn", "main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "80"]

@@ -27,7 +27,7 @@ class WALFileManager:
         self.scheduler.start()
         self.open_wal_file_counter = get_metric(WALWRITER_WAL_FILES_OPEN)  # open telemetry metric
         self.wal_files_created_counter = get_metric(WALWRITER_WAL_FILES_CREATED)
-        atexit.register(lambda: self.scheduler.shutdown())
+        atexit.register(self.close)
 
     # writes data to the appropriate file
     def write(self, device_name: str,  server_time_ns: int, msg_type: str, measure_name: str, data_time_ns: int,
@@ -146,3 +146,20 @@ class WALFileManager:
                     self.pool[key]["handle"].close()
                     del self.pool[key]
                     self.open_wal_file_counter.add(-1)
+
+    # when the wal writer exits this will close all open files and shut down the scheduler
+    def close(self):
+        if self.scheduler.running:
+            self.scheduler.shutdown()
+
+        if len(self.pool) != 0:
+            self._LOGGER.info("Closing open WAL files...")
+            with self.lock:
+                keys = tuple(self.pool.keys())
+                for key in keys:
+                    self.pool[key]["handle"].flush()
+                    self._LOGGER.info("Closing: {}".format(self.pool[key]["file_path"]))
+                    self.pool[key]["handle"].close()
+                    del self.pool[key]
+                    self.open_wal_file_counter.add(-1)
+            self._LOGGER.info("All WAL files closed")
