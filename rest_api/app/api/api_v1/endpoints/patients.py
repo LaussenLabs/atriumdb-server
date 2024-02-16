@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional, Tuple
 from fastapi import APIRouter, Depends, Security, HTTPException
 from rest_api.app.core.auth import auth, Auth0User
 from rest_api.app.core.database import database
@@ -19,8 +19,9 @@ async def get_patients(
 
 
 @router.get("/{id}", dependencies=[Depends(auth.implicit_scheme)], response_model=schemas.Patient)
-async def get_patient(
+async def get_patient_info(
         id: str,
+        time: Optional[int] = None,
         user: Auth0User = Security(auth.get_user)):
     # check to make sure the user is using proper identifier format
     if "id|" not in id and "mrn|" not in id:
@@ -29,11 +30,39 @@ async def get_patient(
     # split on pipe character to see if the prefix is "id" or "mrn" and query accordingly
     split = id.split('|')
     if split[0] == 'mrn':
-        res = await database.fetch_one(models.Patient.select().where(models.Patient.c.mrn == int(split[1])))
+        res = atriumdb_sdk.get_patient_info(mrn=int(split[1]), time=time)
+    elif split[0] == 'id':
+        res = atriumdb_sdk.get_patient_info(patient_id=int(split[1]), time=time)
     else:
-        res = await database.fetch_one(models.Patient.select().where(models.Patient.c.id == int(split[1])))
+        raise HTTPException(status_code=400, detail="Request string malformed please use the form 'id|12345' or 'mrn|1234567'")
+
     if res is None:
         raise HTTPException(status_code=404, detail="Patient not found")
+    return res
+
+
+@router.get("/{id}/history", dependencies=[Depends(auth.implicit_scheme)], response_model=List[Tuple])
+async def get_patient_history(
+        id: str,
+        field: str,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+        user: Auth0User = Security(auth.get_user)):
+    # check to make sure the user is using proper identifier format
+    if "id|" not in id and "mrn|" not in id:
+        raise HTTPException(status_code=400, detail="Patient id or mrn malformed. Must be of the structure 'id|12345' if searching by patient id or 'mrn|1234567' if searching by mrn")
+
+    # split on pipe character to see if the prefix is "id" or "mrn" and query accordingly
+    split = id.split('|')
+    if split[0] == 'mrn':
+        res = atriumdb_sdk.get_patient_history(mrn=int(split[1]), field=field, start_time=start_time, end_time=end_time)
+    elif split[0] == 'id':
+        res = atriumdb_sdk.get_patient_history(patient_id=int(split[1]), field=field, start_time=start_time, end_time=end_time)
+    else:
+        raise HTTPException(status_code=400, detail="Request string malformed please use the form 'id|12345' or 'mrn|1234567'")
+
+    if res is None:
+        raise HTTPException(status_code=404, detail=f"No patient history found for id={id}, field={field}, start_time={start_time}, end_time={end_time}")
     return res
 
 
