@@ -39,6 +39,6 @@ async def shutdown():
 FastAPIInstrumentor.instrument_app(app)
 app.include_router(api_router, prefix="/v1")
 
-# for debugging
+# # for debugging
 # if __name__ == "__main__":
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+#     uvicorn.run(app)
