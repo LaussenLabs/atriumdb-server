@@ -12,7 +12,7 @@ svc_tsc_gen:
   # If you want it to create a new dataset on startup (good for dev)
   create_dataset: True
   interval_index_mode: "merge"
-  gap_tolerance: 30_000_000_000
+  gap_tolerance: 10000000000
   metadb_connection: metadb
 
 #### BACKEND DATABASE ####
