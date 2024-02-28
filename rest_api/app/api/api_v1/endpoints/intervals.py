@@ -66,7 +66,7 @@ async def get_intervals(
 
     # check if patient_id exists
     if patient_id is not None:
-        if atriumdb_sdk.get_patient_info(device_id) is None:
+        if atriumdb_sdk.get_patient_info(patient_id) is None:
             raise HTTPException(status_code=400, detail=f"patient_id: {patient_id} not found.")
 
     # convert MRN to patient_id
