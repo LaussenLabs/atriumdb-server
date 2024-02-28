@@ -85,7 +85,8 @@ def write_wal_data_to_sdk(wal_data, sdk):
     sdk.write_data(
         measure_id, device_id, gap_arr, value_data, h.sample_freq, int(wal_data.time_data[0]),
         raw_time_type=t_t, raw_value_type=raw_v_t, encoded_time_type=t_t, encoded_value_type=encoded_v_t,
-        scale_b=h.scale_0, scale_m=h.scale_1, interval_index_mode=config.svc_tsc_gen['interval_index_mode'])
+        scale_b=h.scale_0, scale_m=h.scale_1, interval_index_mode=config.svc_tsc_gen['interval_index_mode'],
+        gap_tolerance=config.svc_tsc_gen['gap_tolerance'])
 
     return 0
 

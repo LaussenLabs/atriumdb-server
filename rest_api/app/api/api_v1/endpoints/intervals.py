@@ -19,6 +19,7 @@ async def get_intervals(
         end_time: Optional[int] = None,
         device_id: Optional[int] = None,
         measure_id: Optional[int] = None,
+        gap_tolerance: Optional[int] = None,
 
         device_tag: Optional[str] = None,
         measure_tag: Optional[str] = None,
@@ -50,38 +51,33 @@ async def get_intervals(
             num_sources += 1
 
     if num_sources != 1:
-        raise HTTPException(status_code=400,
-                            detail="Please only specify one of [device_id, device_tag, patient_id, mrn]")
+        raise HTTPException(status_code=400, detail="Please only specify one of [device_id, device_tag, patient_id, mrn]")
 
+    # check if device_id exists
+    if device_id is not None:
+        if atriumdb_sdk.get_device_info(device_id) is None:
+            raise HTTPException(status_code=400, detail=f"device_id: {device_id} not found.")
+
+    # convert device_tag to device_id
     if device_tag is not None:
         device_id = atriumdb_sdk.get_device_id(device_tag=device_tag)
         if device_id is None:
-            raise HTTPException(status_code=400,
-                                detail=f"device_tag: {device_tag} not found.")
+            raise HTTPException(status_code=400, detail=f"device_tag: {device_tag} not found.")
 
-    if device_id is not None:
-        if atriumdb_sdk.get_device_info(device_id) is None:
-            raise HTTPException(status_code=400,
-                                detail=f"device_id: {device_id} not found.")
-
-        result = atriumdb_sdk.get_interval_array(
-            measure_id, device_id=device_id, patient_id=None, gap_tolerance_nano=None,
-            start=start_time, end=end_time).tolist()
-
-        limit = len(result) if limit is None else limit
-        return result[skip:skip + limit]
-
-    if mrn is not None:
-        mrn_map = atriumdb_sdk.get_mrn_to_patient_id_map(mrn_list=[mrn])
-        if len(mrn_map) == 0:
-            raise HTTPException(status_code=400,
-                                detail=f"mrn: {mrn} not found.")
-        patient_id = mrn_map[mrn]
-
+    # check if patient_id exists
     if patient_id is not None:
-        result = atriumdb_sdk.get_interval_array(
-            measure_id, device_id=None, patient_id=patient_id, gap_tolerance_nano=None,
-            start=start_time, end=end_time).tolist()
+        if atriumdb_sdk.get_patient_info(patient_id) is None:
+            raise HTTPException(status_code=400, detail=f"patient_id: {patient_id} not found.")
 
-        limit = len(result) if limit is None else limit
-        return result[skip:skip + limit]
+    # convert MRN to patient_id
+    if mrn is not None:
+        patient_id = atriumdb_sdk.get_patient_id(mrn=mrn)
+        if patient_id is None:
+            raise HTTPException(status_code=400, detail=f"mrn: {mrn} not found.")
+
+    result = atriumdb_sdk.get_interval_array(
+        measure_id, device_id=device_id, patient_id=patient_id, gap_tolerance_nano=gap_tolerance,
+        start=start_time, end=end_time).tolist()
+
+    limit = len(result) if limit is None else limit
+    return result[skip:skip + limit]
