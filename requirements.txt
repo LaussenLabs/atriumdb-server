@@ -1,4 +1,4 @@
-atriumdb[mariadb]==2.2.1
+atriumdb[mariadb]==2.2.2
 aiomysql==0.2.0
 aio_pika>=8.3.0
 apscheduler==3.9.1.post1
