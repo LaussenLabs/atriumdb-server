@@ -64,12 +64,17 @@ def write_wal_data_to_sdk(wal_data, sdk):
     #     _LOGGER.warning("Duplicate data detected for measure_id {},  device_id {} and start time {}".format(measure_id, device_id, int(wal_data.time_data[0])))
     #     return 1
 
-    gap_arr = create_gap_arr(wal_data.time_data, h.samples_per_message, h.sample_freq)
-
+    gap_arr = None
     if h.mode == ValueMode.TIME_VALUE_PAIRS.value:
         value_data = wal_data.value_data
+        gap_arr = create_gap_arr(wal_data.time_data, h.samples_per_message, h.sample_freq)
     elif h.mode == ValueMode.INTERVALS.value:
-        value_data = np.concatenate([v[:wal_data.message_sizes[i]] for i, v in enumerate(wal_data.value_data)], axis=None)
+        if h.samples_per_message == 0:
+            value_data = wal_data.value_data
+            gap_arr = create_gap_arr_from_variable_messages(wal_data.time_data, wal_data.message_sizes, h.sample_freq)
+        else:
+            value_data = np.concatenate([v[:wal_data.message_sizes[i]] for i, v in enumerate(wal_data.value_data)], axis=None)
+            gap_arr = create_gap_arr(wal_data.time_data, h.samples_per_message, h.sample_freq)
     else:
         raise ValueError("{} not in {}.".format(h.mode, list(ValueMode)))
 
@@ -117,3 +122,31 @@ def truncate_interval_wal_data_upto_message(wal_data, first_corrupt_message_inde
     wal_data.value_data = wal_data.value_data[:first_corrupt_message_index]
     wal_data.message_sizes = wal_data.message_sizes[:first_corrupt_message_index]
     wal_data.null_offsets = wal_data.null_offsets[:first_corrupt_message_index]
+
+
+def create_gap_arr_from_variable_messages(time_data, message_sizes, sample_freq):
+    result_list = []
+    current_sample = 0
+
+    for i in range(1, len(time_data)):
+        # Compute the time difference between consecutive messages
+        delta_t = time_data[i] - time_data[i - 1]
+
+        # Calculate the message period for the current message based on its size
+        current_message_size = message_sizes[i - 1]
+        current_message_period_ns = ((10 ** 18) * current_message_size) // sample_freq
+
+        # Check if the time difference doesn't match the expected message period
+        if delta_t != current_message_period_ns:
+            # Compute the extra duration (time gap) and the starting index of the gap
+            time_gap = delta_t - current_message_period_ns
+            gap_start_index = current_sample + current_message_size
+
+            # Add the gap information to the result list
+            result_list.extend([gap_start_index, time_gap])
+
+        # Update the current sample index for the next iteration
+        current_sample += current_message_size
+
+    # Convert the result list to a NumPy array of integers
+    return np.array(result_list, dtype=np.int64)

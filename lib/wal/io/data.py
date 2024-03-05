@@ -1,4 +1,5 @@
 import ctypes
+import struct
 
 import numpy as np
 
@@ -17,6 +18,8 @@ value_metadata_data_type = np.dtype('<u4')
 data_type_byte = np.uint8
 
 header_size = ctypes.sizeof(WALHeaderStructure)
+interval_message_struct_types = '<qqII'
+interval_message_header_size = struct.calcsize(interval_message_struct_types)
 
 supported_versions = [1]
 
@@ -104,7 +107,10 @@ class WALData:
 
         elif self.header.mode == ValueMode.INTERVALS.value:
             # Intervals
-            self._interpret_intervals()
+            if self.header.samples_per_message == 0:
+                self._interpret_intervals_line_by_line()
+            else:
+                self._interpret_intervals()
 
         else:
             raise ValueError("{} mode not in {}".format(self.header.mode, list(ValueMode)))
@@ -191,6 +197,53 @@ class WALData:
         self.value_data = self.data["values"]
         self.message_sizes = self.data["num_values"]
         self.null_offsets = self.data["null_offset"]
+
+    def _interpret_intervals_line_by_line(self):
+        header_size = ctypes.sizeof(WALHeaderStructure)
+        body_arr = self.byte_arr[header_size:]
+
+        # Prepare lists to hold parsed data
+        time_data = []
+        server_time_data = []
+        value_data = []
+        message_sizes = []
+        null_offsets = []
+
+        # Determine value data type and its size
+        value_dtype = value_data_type_dict[self.header.input_value_type]
+        value_size = np.dtype(value_dtype).itemsize
+
+        # Initialize cursor for tracking position within body_arr
+        cursor = 0
+        while cursor < len(body_arr):
+            if cursor + interval_message_header_size >= len(body_arr):
+                break
+            # Parse message header
+            start_time_nominal, start_time_server, num_values, null_offset = struct.unpack_from(
+                interval_message_struct_types, body_arr, offset=cursor)
+            cursor += interval_message_header_size
+
+            # Record header data
+            time_data.append(start_time_nominal)
+            server_time_data.append(start_time_server)
+            message_sizes.append(num_values)
+            null_offsets.append(null_offset)
+
+            # Parse and record value data
+            values_end = cursor + num_values * value_size
+            if values_end >= len(body_arr):
+                message_sizes[-1] = 0
+                break
+            values = np.frombuffer(body_arr[cursor:values_end], dtype=value_dtype)
+            value_data.extend(values)
+            cursor = values_end
+
+        # Convert lists to NumPy arrays
+        self.time_data = np.array(time_data, dtype=np.int64)
+        self.server_time_data = np.array(server_time_data, dtype=np.int64)
+        self.value_data = np.concatenate(value_data) if value_data else np.array([], dtype=value_dtype)
+        self.message_sizes = np.array(message_sizes, dtype=np.uint32)
+        self.null_offsets = np.array(null_offsets, dtype=np.uint32)
 
     def _get_interval_data_type(self):
         data_type = np.dtype([("start_time_nominal", time_data_data_type),
