@@ -53,40 +53,60 @@ class WALFileManager:
         header["version"] = 1
         header["device_name"] = bytes(device_name+("\0"*(64-len(device_name))), 'utf-8')
         header["sample_freq"] = int(freq * (10 ** 9))
-        # all files within an hour of mtime and
+        # all files within an hour of mtime go in the same file
         header['file_start_time'] = (int((data_time_ns / 1_000_000_000) - (
                     (data_time_ns / 1_000_000_000) % self.file_length_time))) * 1_000_000_000
 
         header["measure_name"] = bytes(measure_name+("\0" * (64 - len(measure_name))), 'utf-8')
         header["measure_units"] = bytes(measure_units+("\0" * (64 - len(measure_units))), 'utf-8')
-        # default for values
+        header["true_value_type"] = ValueType.FLOAT64.value  # not used
+        header["samples_per_message"] = 0  # not used
+        # default values
         values = 0
+        header["scale_type"] = ScaleType.NONE.value
+        header["scale_0"] = float(0)
+        header["scale_1"] = float(0)
+        # these are for possible expansion and currently are unused
+        header["scale_2"] = float(0)
+        header["scale_3"] = float(0)
 
         if msg_type =="wav":
             header["mode"] = ValueMode.INTERVALS.value
-            header["input_value_type"] = ValueType.INT16.value
-            header["true_value_type"] = ValueType.FLOAT64.value
+            # parse the values from the '^' delimited string
             values = np.fromstring(data, dtype=float, sep='^')
-            values = ((values - meta_data["scale_b"]) / meta_data["scale_m"])  # convert to ints
-            values = np.rint(values).astype(np.dtype("<i2"))
-            header["samples_per_message"] = values.size
-            header["scale_type"] = ScaleType.LINEAR.value
-            header["scale_0"] = meta_data["scale_b"]
-            header["scale_1"] = meta_data["scale_m"]
-            header["scale_2"] = float(0)
-            header["scale_3"] = float(0)
 
+            # check for scale factors for Phillips and Draeger data
+            if meta_data is not None and "scale_m" in meta_data and "scale_b" in meta_data:
+
+                # if m is not 0 or 1 and b is not 0 the values need to be scaled
+                if meta_data["scale_m"] != 0 and meta_data["scale_m"] != 1 and meta_data["scale_b"] != 0:
+                    # Set scale type to linear (this is not used now but may be in the future)
+                    header["scale_type"] = ScaleType.LINEAR.value
+                    # store scale factors so we can convert back to floats later when the data is decompressed
+                    header["scale_0"] = meta_data["scale_b"]
+                    header["scale_1"] = meta_data["scale_m"]
+
+                    # convert to ints (for better compression) using scale factors
+                    values = ((values - meta_data["scale_b"]) / meta_data["scale_m"])
+
+                # type cast to integers (if values wern't scaled that means they were already ints)
+                values = np.rint(values).astype(np.dtype("<i2"))
+
+                # this is the type we are going to write to the wal files
+                # type is now INT because we converted to it using scale factors or they were just ints to start with
+                header["input_value_type"] = ValueType.INT16.value
+
+            # here no scaling is applied and floats are written to disk
+            elif meta_data is None:
+                header["input_value_type"] = ValueType.FLOAT64.value
+            else:
+                raise NotImplementedError("This combination of scale factors has not yet been implemented. Please contact devs")
+
+        # metrics dont get scaled
         elif msg_type == "met":
-            header["input_value_type"] = ValueType.FLOAT64.value
-            header["true_value_type"] = ValueType.FLOAT64.value
             header["mode"] = ValueMode.TIME_VALUE_PAIRS.value
-            header["samples_per_message"] = 1
+            header["input_value_type"] = ValueType.FLOAT64.value
             values = float(data)
-            header["scale_type"] = ScaleType.NONE.value
-            header["scale_0"] = float(0)
-            header["scale_1"] = float(0)
-            header["scale_2"] = float(0)
-            header["scale_3"] = float(0)
 
         return header, values
 
@@ -136,13 +156,13 @@ class WALFileManager:
 
     # garbage collect stale file handles
     def _gc(self):
-        self._LOGGER.info("Running GC")
+        self._LOGGER.debug("Running GC")
         with self.lock:
             keys = tuple(self.pool.keys())
             for key in keys:
                 self.pool[key]["handle"].flush()
                 if time.time() - self.pool[key]["last_access"] >= self.idle_timeout:
-                    self._LOGGER.info("Closing: {}".format(self.pool[key]["file_path"]))
+                    self._LOGGER.debug("Closing: {}".format(self.pool[key]["file_path"]))
                     self.pool[key]["handle"].close()
                     del self.pool[key]
                     self.open_wal_file_counter.add(-1)

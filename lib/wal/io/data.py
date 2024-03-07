@@ -10,6 +10,7 @@ NANO = 10 ** 9
 
 value_data_type_dict = {0: np.dtype("<f4"), 1: np.dtype("<f8"), 2: np.dtype("<i1"), 3: np.dtype("<i2"),
                         4: np.dtype("<i4"), 5: np.dtype("<i8")}
+# python iso standard for number types
 value_struct_char_dict = {0: 'f', 1: 'd', 2: 'b', 3: 'h', 4: 'i', 5: 'q'}
 value_py_type_dict = {0: float, 1: float, 2: int, 3: int, 4: int, 5: int}
 time_data_data_type = np.dtype('<i8')
