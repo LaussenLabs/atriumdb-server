@@ -74,7 +74,7 @@ services:
           memory: 0.5G
   api:
     image: atriumdb/atriumdb-server:1.0.0
-    command: ./atriumdb-server --rest-api
+    command: ./atriumdb-server --rest-api --uvicorn-num-workers 8
     env_file:
      - api.env
     ports:
