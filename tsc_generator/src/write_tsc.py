@@ -99,6 +99,8 @@ def trim_corrupt_data(wal_data):
     if wal_data.header.mode == ValueMode.TIME_VALUE_PAIRS.value:
         return 0
     elif wal_data.header.mode == ValueMode.INTERVALS.value:
+        if wal_data.header.samples_per_message == 0:
+            return 0
         for i in range(wal_data.message_sizes.size):
             message_size = wal_data.message_sizes[i]
             null_offset = wal_data.null_offsets[i]
