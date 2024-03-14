@@ -20,7 +20,7 @@ import ssl
 DATASET_DIR = "../../test_data"
 db_name = 'server-test'
 
-# make sure docker containers are running first
+
 def test_end_to_end_wav():
     # clear database dir and drop old test table from mariadb
     reset_database(DATASET_DIR)
@@ -58,7 +58,6 @@ def test_end_to_end_wav():
             period_nano = int((10 ** 9) // data['freq'])
             time_data.append(np.arange(data['mtime'], data['mtime'] + (len(values) * period_nano), period_nano, dtype=np.int64))
 
-
     # flatten list
     data = [i for sublist in wav_data for i in sublist]
     data_time = [i for sublist in time_data for i in sublist]
@@ -75,6 +74,62 @@ def test_end_to_end_wav():
     assert header[0].scale_m == 0.0003907204
     assert header[0].scale_b == -0.4
     print("Waveforms test passed")
+
+
+# this will test when there are no scale factors provided and when message sizes are variable
+def test_end_to_end_wav_noscale():
+    # clear database dir and drop old test table from mariadb
+    reset_database(DATASET_DIR)
+
+    sdk = AtriumSDK.create_dataset(dataset_location=DATASET_DIR, database_type=config.svc_wal_writer['metadb_connection']['type'],
+                                   connection_params=config.CONNECTION_PARAMS)
+
+    # send test data to rabbitMQ
+    send_data("data/single_cmf_test_wav_no_scale.txt")
+
+    # wait 2 mins for data to be ingested
+    time.sleep(120)
+
+    devices = sdk.get_all_devices()
+    # make sure the device is named correctly
+    assert devices[1]['id'] == sdk.get_device_id(device_tag="97")
+
+    measures = sdk.get_all_measures()
+    # make sure there is only one measure
+    assert len(measures) == 1
+    # make sure the measure was inserted correctly
+    assert measures[1]['id'] == sdk.get_measure_id(measure_tag="MDC_RESP", freq=62_500_000_000, units="MDC_DIM_X_OHM")
+
+    # extract wav data from cmf messages
+    wav_data = []
+    time_data = []
+    with open("data/single_cmf_test_wav_no_scale.txt", 'r') as f:
+        for line in f:
+            data = orjson.loads(line)
+            values = np.fromstring(data['val'], dtype=float, sep='^')
+            wav_data.append(values)
+
+            period_nano = int((10 ** 9) // data['freq'])
+            time_data.append(np.arange(data['mtime'], data['mtime'] + (len(values) * period_nano), period_nano, dtype=np.int64))
+
+    # flatten list
+    data = [i for sublist in wav_data for i in sublist]
+    data_time = [i for sublist in time_data for i in sublist]
+
+    # get stored data from atriumDB using the sdk
+    header, read_times, read_values = sdk.get_data(measure_id=measures[1]['id'], start_time_n=0, end_time_n=1651132415296000000, device_id=devices[1]['id'])
+
+    # confirm data is stored correctly
+    assert np.array_equal(data, read_values)
+
+    # confirm times are stored correctly
+    assert np.array_equal(data_time, read_times)
+
+    # confirm scaling factors are stored correctly
+    assert header[0].scale_m == 0
+    assert header[0].scale_b == 0
+    print("Waveforms with variable message sizes and no scale factors test passed")
+
 
 def test_end_to_end_met():
     # clear database dir and drop old test table from mariadb
@@ -108,8 +163,13 @@ def test_end_to_end_met():
 
     # ensure the values, time and measure units were inserted correctly
     _, read_times, read_values = sdk.get_data(measure_id=measure_id_1, start_time_n=0, end_time_n=1751124948520000000, device_id=devices[1]['id'])
+
     assert read_values[0] == 28
     assert read_times[0] == 1651124948520000000
+    assert read_values[1] == 29
+    assert read_times[1] == 1651124949544000000
+    assert read_values[2] == 29
+    assert read_times[2] == 1651124950568000000
     assert measures[measure_id_1]['unit'] == 'MDC_DIM_RESP_PER_MIN'
 
     _, read_times, read_values = sdk.get_data(measure_id=measure_id_2, start_time_n=0, end_time_n=1751124948520000000, device_id=devices[1]['id'])
@@ -127,6 +187,7 @@ def test_end_to_end_met():
     assert read_times[0] == 1651124948520000000
     assert measures[measure_id_4]['unit'] == 'MDC_DIM_MMHG'
     print("Metrics test passed")
+
 
 def send_data(test_data_dir: str):
 
@@ -188,4 +249,5 @@ def reset_database(highest_level_dir):
 
 if __name__ == "__main__":
     test_end_to_end_wav()
+    test_end_to_end_wav_noscale()
     test_end_to_end_met()

@@ -96,9 +96,11 @@ async def on_message(message: AbstractIncomingMessage):
         try:
             start_time = time()
             if data['type'] == "wav":
+                meta_data = data['srcmeta'] if 'srcmeta' in data else None
+
                 wal.write(device_name=str(data['devid']), server_time_ns=data['systime'], msg_type=data['type'],
                           measure_name=data['mname'], data_time_ns=data['mtime'], measure_units=data['uom'],
-                          freq=data['freq'], data=data['val'], meta_data=data['srcmeta'])
+                          freq=data['freq'], data=data['val'], meta_data=meta_data)
                 processed_waveforms_counter.add(1)
             # if the message is a metric message it won't contain the metadata field
             elif data['type'] == "met":

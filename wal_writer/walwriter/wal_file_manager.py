@@ -60,7 +60,6 @@ class WALFileManager:
         header["measure_name"] = bytes(measure_name+("\0" * (64 - len(measure_name))), 'utf-8')
         header["measure_units"] = bytes(measure_units+("\0" * (64 - len(measure_units))), 'utf-8')
         header["true_value_type"] = ValueType.FLOAT64.value  # not used
-        header["samples_per_message"] = 0  # not used
         # default values
         values = 0
         header["scale_type"] = ScaleType.NONE.value
@@ -72,14 +71,15 @@ class WALFileManager:
 
         if msg_type =="wav":
             header["mode"] = ValueMode.INTERVALS.value
+            header["samples_per_message"] = 0  # not used for waveforms
             # parse the values from the '^' delimited string
             values = np.fromstring(data, dtype=float, sep='^')
 
             # check for scale factors for Phillips and Draeger data
             if meta_data is not None and "scale_m" in meta_data and "scale_b" in meta_data:
 
-                # if m is not 0 or 1 and b is not 0 the values need to be scaled
-                if meta_data["scale_m"] != 0 and meta_data["scale_m"] != 1 and meta_data["scale_b"] != 0:
+                # if m or b are not 0 the values need to be scaled
+                if meta_data["scale_m"] != 0 or meta_data["scale_b"] != 0:
                     # Set scale type to linear (this is not used now but may be in the future)
                     header["scale_type"] = ScaleType.LINEAR.value
                     # store scale factors so we can convert back to floats later when the data is decompressed
@@ -105,6 +105,7 @@ class WALFileManager:
         # metrics dont get scaled
         elif msg_type == "met":
             header["mode"] = ValueMode.TIME_VALUE_PAIRS.value
+            header["samples_per_message"] = 1
             header["input_value_type"] = ValueType.FLOAT64.value
             values = float(data)
 
