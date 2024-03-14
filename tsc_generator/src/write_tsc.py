@@ -127,6 +127,7 @@ def truncate_interval_wal_data_upto_message(wal_data, first_corrupt_message_inde
 
 
 def create_gap_arr_from_variable_messages(time_data, message_sizes, sample_freq):
+    sample_freq = int(sample_freq)
     result_list = []
     current_sample = 0
 
@@ -135,7 +136,7 @@ def create_gap_arr_from_variable_messages(time_data, message_sizes, sample_freq)
         delta_t = time_data[i] - time_data[i - 1]
 
         # Calculate the message period for the current message based on its size
-        current_message_size = message_sizes[i - 1]
+        current_message_size = int(message_sizes[i - 1])
         current_message_period_ns = ((10 ** 18) * current_message_size) // sample_freq
 
         # Check if the time difference doesn't match the expected message period
