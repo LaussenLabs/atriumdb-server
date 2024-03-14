@@ -5,6 +5,8 @@ import copy
 import numpy as np
 import string
 
+from atriumdb import create_gap_arr
+
 from wal.io.data import WALData
 from wal.io.enums import ValueMode
 from wal.io.reader import WALReader
@@ -106,12 +108,27 @@ class TestWALData(unittest.TestCase):
                     self.assertTrue(np.array_equal(
                         full_read_wal_data_readline.value_data, value_data))
 
+                    # Test gap array equality
+                    normal_gap_array = create_gap_arr(
+                        wal_data.time_data, wal_data.header.samples_per_message, wal_data.header.sample_freq)
+
+                    readline_gap_arr = create_gap_arr_from_variable_messages(
+                        full_read_wal_data_readline.time_data,
+                        full_read_wal_data_readline.message_sizes,
+                        full_read_wal_data_readline.header.sample_freq)
+
+                    self.assertTrue(len(readline_gap_arr) == len(normal_gap_array))
+                    self.assertTrue(np.array_equal(readline_gap_arr, normal_gap_array))
+
                 else:
                     raise ValueError(f"wal data mode {wal_data.header.mode} must be one of "
                                      f"{[ValueMode.TIME_VALUE_PAIRS.value, ValueMode.INTERVALS.value]}")
 
                 self.assertTrue(np.array_equal(
                     full_read_wal_data_readline.time_data, wal_data.time_data))
+
+                self.assertTrue(np.array_equal(
+                    full_read_wal_data_readline.message_sizes, wal_data.message_sizes))
 
                 wal_data_full_write_read_arr[wal_i] = full_read_wal_data
 
@@ -164,6 +181,35 @@ class TestWALData(unittest.TestCase):
             raise ValueError("{} not in {}.".format(mode, list(ValueMode)))
         wal_data_matrix = np.array(wal_data_matrix, dtype=WALData)
         return wal_data_matrix
+
+
+def create_gap_arr_from_variable_messages(time_data, message_sizes, sample_freq):
+    sample_freq = int(sample_freq)
+    result_list = []
+    current_sample = 0
+
+    for i in range(1, len(time_data)):
+        # Compute the time difference between consecutive messages
+        delta_t = time_data[i] - time_data[i - 1]
+
+        # Calculate the message period for the current message based on its size
+        current_message_size = int(message_sizes[i - 1])
+        current_message_period_ns = ((10 ** 18) * current_message_size) // sample_freq
+
+        # Check if the time difference doesn't match the expected message period
+        if delta_t != current_message_period_ns:
+            # Compute the extra duration (time gap) and the starting index of the gap
+            time_gap = delta_t - current_message_period_ns
+            gap_start_index = current_sample + current_message_size
+
+            # Add the gap information to the result list
+            result_list.extend([gap_start_index, time_gap])
+
+        # Update the current sample index for the next iteration
+        current_sample += current_message_size
+
+    # Convert the result list to a NumPy array of integers
+    return np.array(result_list, dtype=np.int64)
 
 
 if __name__ == '__main__':
