@@ -40,8 +40,10 @@ def write_wal_data_to_sdk(wal_data, sdk):
 
     h = wal_data.header
 
+    # get the measure_id from the measure tag
     measure_id = sdk.get_measure_id(measure_tag=h.measure_name.decode('utf-8'), freq=h.sample_freq, units=h.measure_units.decode('utf-8'))
     if measure_id is None:
+        # insert the measure if it does not exist
         sdk.insert_measure(measure_tag=h.measure_name.decode('utf-8'), freq=h.sample_freq, units=h.measure_units.decode('utf-8'))
         measure_id = sdk.get_measure_id(measure_tag=h.measure_name.decode('utf-8'), freq=h.sample_freq, units=h.measure_units.decode('utf-8'))
         if measure_id is None:
@@ -50,8 +52,10 @@ def write_wal_data_to_sdk(wal_data, sdk):
         else:
             measures_inserted_counter.add(1)
 
+    # get the device_id from the tag
     device_id = sdk.get_device_id(device_tag=h.device_name.decode('utf-8'))
     if device_id is None:
+        # insert a new device if the device does not exist
         sdk.insert_device(device_tag=h.device_name.decode('utf-8'))
         device_id = sdk.get_device_id(device_tag=h.device_name.decode('utf-8'))
         if device_id is None:
@@ -60,21 +64,26 @@ def write_wal_data_to_sdk(wal_data, sdk):
         else:
             devices_inserted_counter.add(1)
 
-    # if sdk.measure_device_start_time_exists(measure_id, device_id, int(wal_data.time_data[0])):
-    #     _LOGGER.warning("Duplicate data detected for measure_id {},  device_id {} and start time {}".format(measure_id, device_id, int(wal_data.time_data[0])))
-    #     return 1
-
-    gap_arr = None
+    time_arr = []
+    # this mode is generally used for metrics
     if h.mode == ValueMode.TIME_VALUE_PAIRS.value:
         value_data = wal_data.value_data
-        gap_arr = create_gap_arr(wal_data.time_data, h.samples_per_message, h.sample_freq)
+
+        if h.sample_freq != 0:
+            time_arr = create_gap_arr(wal_data.time_data, h.samples_per_message, h.sample_freq)
+        else:
+            # if the frequency is 0 we know the signal is aperiodic so don't try to make a gap array
+            time_arr = wal_data.time_data
+
+    # this mode is generally used for waveforms
     elif h.mode == ValueMode.INTERVALS.value:
         if h.samples_per_message == 0:
             value_data = wal_data.value_data
-            gap_arr = create_gap_arr_from_variable_messages(wal_data.time_data, wal_data.message_sizes, h.sample_freq)
+            time_arr = create_gap_arr_from_variable_messages(wal_data.time_data, wal_data.message_sizes, h.sample_freq)
         else:
+            # legacy code shouldn't be used. Kept for reverse compatibility
             value_data = np.concatenate([v[:wal_data.message_sizes[i]] for i, v in enumerate(wal_data.value_data)], axis=None)
-            gap_arr = create_gap_arr(wal_data.time_data, h.samples_per_message, h.sample_freq)
+            time_arr = create_gap_arr(wal_data.time_data, h.samples_per_message, h.sample_freq)
     else:
         raise ValueError("{} not in {}.".format(h.mode, list(ValueMode)))
 
@@ -85,13 +94,35 @@ def write_wal_data_to_sdk(wal_data, sdk):
         raw_v_t = V_TYPE_DOUBLE
         encoded_v_t = V_TYPE_DOUBLE
 
-    t_t = T_TYPE_GAP_ARRAY_INT64_INDEX_DURATION_NANO
+    if h.sample_freq != 0:
+        t_t = T_TYPE_GAP_ARRAY_INT64_INDEX_DURATION_NANO
+        gap_tolerance = config.svc_tsc_gen['gap_tolerance']
+
+    # if the freq=0 and we are in time value pair mode that means the signal is aperiodic
+    elif h.mode == ValueMode.TIME_VALUE_PAIRS.value:
+        # set time type to timestamp array
+        t_t = T_TYPE_TIMESTAMP_ARRAY_INT64_NANO
+        # turn on time compression for the times since they will all be saved
+        sdk.block.t_compression = 3
+        sdk.block.t_compression_level = 13
+
+        # set the gap tolerance to 2 times the biggest gap in the wal file and if there's only one value make it 1 hour
+        gap_tolerance = int(np.max(np.diff(time_arr[1:] - time_arr[:-1]) * 2)) if len(time_arr) > 1 else 3_600_000_000_000
+        # set frequency to 1 so things in the sdk don't break when calculating the intervals
+        h.sample_freq = 1
+    else:
+        raise NotImplementedError("Aperiodic mode (freq=0) has not been implemented for gap arrays yet")
+
 
     sdk.write_data(
-        measure_id, device_id, gap_arr, value_data, h.sample_freq, int(wal_data.time_data[0]),
+        measure_id, device_id, time_arr, value_data, h.sample_freq, int(wal_data.time_data[0]),
         raw_time_type=t_t, raw_value_type=raw_v_t, encoded_time_type=t_t, encoded_value_type=encoded_v_t,
         scale_b=h.scale_0, scale_m=h.scale_1, interval_index_mode=config.svc_tsc_gen['interval_index_mode'],
-        gap_tolerance=config.svc_tsc_gen['gap_tolerance'])
+        gap_tolerance=gap_tolerance)
+
+    # reset time compression back to normal values incase they were changed by an aperiodic signal
+    sdk.block.t_compression = 1
+    sdk.block.t_compression_level = 0
 
     return 0
 
@@ -113,7 +144,6 @@ def trim_corrupt_data(wal_data):
                 truncate_interval_wal_data_upto_message(wal_data, i)
                 return 0
         return 0
-
     else:
         return -1
 

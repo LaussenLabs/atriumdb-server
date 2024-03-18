@@ -1,0 +1,6 @@
+{"srcid": 2, "devid": 110, "systime": 1651124952906194000, "type": "met", "mname": "MDC_RESP_RATE", "mtime": 1651124948520000000, "uom": "MDC_DIM_RESP_PER_MIN", "freq": 0, "val": "28"}
+{"srcid": 2, "devid": 110, "systime": 1651124953906294000, "type": "met", "mname": "MDC_RESP_RATE", "mtime": 1651124949520000000, "uom": "MDC_DIM_RESP_PER_MIN", "freq": 0, "val": "29"}
+{"srcid": 2, "devid": 110, "systime": 1651124954930397000, "type": "met", "mname": "MDC_RESP_RATE", "mtime": 1651124949520050000, "uom": "MDC_DIM_RESP_PER_MIN", "freq": 0, "val": "29"}
+{"srcid": 2, "devid": 110, "systime": 1651124952906194000, "type": "met", "mname": "MDC_RESP_RATE", "mtime": 1651124950520000100, "uom": "MDC_DIM_RESP_PER_MIN", "freq": 0, "val": "30"}
+{"srcid": 2, "devid": 110, "systime": 1651124953906294000, "type": "met", "mname": "MDC_RESP_RATE", "mtime": 1651124955530000000, "uom": "MDC_DIM_RESP_PER_MIN", "freq": 0, "val": "22"}
+{"srcid": 2, "devid": 110, "systime": 1651124954930397000, "type": "met", "mname": "MDC_RESP_RATE", "mtime": 1651124956590000000, "uom": "MDC_DIM_RESP_PER_MIN", "freq": 0, "val": "21"}

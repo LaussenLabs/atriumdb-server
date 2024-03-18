@@ -189,6 +189,51 @@ def test_end_to_end_met():
     print("Metrics test passed")
 
 
+def test_end_to_end_aperiodic_met():
+    # clear database dir and drop old test table from mariadb
+    reset_database(DATASET_DIR)
+
+    sdk = AtriumSDK.create_dataset(dataset_location=DATASET_DIR, database_type=config.svc_wal_writer['metadb_connection']['type'],
+                                   connection_params=config.CONNECTION_PARAMS)
+
+    # send test data to rabbitMQ
+    send_data("data/single_cmf_test_aperiodic_met.txt")
+
+    # wait 2 mins for data to be ingested
+    time.sleep(120)
+
+    devices = sdk.get_all_devices()
+    # make sure the device is named correctly
+    assert devices[1]['id'] == sdk.get_device_id(device_tag="110")
+
+    measures = sdk.get_all_measures()
+    # make sure there are 4 measures
+    assert len(measures) == 1
+    # make sure each measure was inserted correctly
+    measure_id_1 = sdk.get_measure_id(measure_tag="MDC_RESP_RATE", freq=0, freq_units="nHz", units="MDC_DIM_RESP_PER_MIN")
+    assert measure_id_1 in measures
+
+    # ensure the values, time and measure units were inserted correctly
+    _, read_times, read_values = sdk.get_data(measure_id=measure_id_1, start_time_n=0, end_time_n=1751124948520000000, device_id=devices[1]['id'])
+
+    assert read_values[0] == 28
+    assert read_times[0] == 1651124948520000000
+    assert read_values[1] == 29
+    assert read_times[1] == 1651124949520000000
+    assert read_values[2] == 29
+    assert read_times[2] == 1651124949520050000
+    assert read_values[3] == 30
+    assert read_times[3] == 1651124950520000100
+    assert read_values[4] == 22
+    assert read_times[4] == 1651124955530000000
+    assert read_values[5] == 21
+    assert read_times[5] == 1651124956590000000
+    assert measures[measure_id_1]['unit'] == 'MDC_DIM_RESP_PER_MIN'
+    assert measures[measure_id_1]['freq_nhz'] == 0
+
+    print("Aperiodic metric test passed")
+
+
 def send_data(test_data_dir: str):
 
     if config.rabbitmq['encrypt']:
@@ -248,6 +293,7 @@ def reset_database(highest_level_dir):
 
 
 if __name__ == "__main__":
+    test_end_to_end_met()
+    test_end_to_end_aperiodic_met()
     test_end_to_end_wav()
     test_end_to_end_wav_noscale()
-    test_end_to_end_met()
