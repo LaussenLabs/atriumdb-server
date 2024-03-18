@@ -5,6 +5,8 @@ import copy
 import numpy as np
 import string
 
+from atriumdb import create_gap_arr
+
 from wal.io.data import WALData
 from wal.io.enums import ValueMode
 from wal.io.reader import WALReader
@@ -32,7 +34,8 @@ class TestWALData(unittest.TestCase):
                     if wal_data_1 is wal_data_2:
                         self.assertTrue(wal_data_1 == wal_data_2)
 
-                        wal_data_1_copy = copy.deepcopy(wal_data_1)
+                        # wal_data_1_copy = copy.deepcopy(wal_data_1)
+                        wal_data_1_copy = wal_data_1.copy()
                         self.assertTrue(wal_data_1_copy == wal_data_2)
                         wal_data_1_copy.time_data[0] += 1
 
@@ -44,8 +47,10 @@ class TestWALData(unittest.TestCase):
     def test_read_write_equality(self):
         # Set the initial variables
         wal_arr_size = 100
+        # wal_arr_size = 1
 
         num_messages = 10 ** 3
+        # num_messages = 10
         for enum_mode in list(ValueMode):
             mode = enum_mode.value
 
@@ -56,6 +61,10 @@ class TestWALData(unittest.TestCase):
             wal_data_incremental_write_read_arr = np.empty(wal_data_arr.size, dtype=WALData)
 
             for wal_i, wal_data in np.ndenumerate(wal_data_arr):
+                # Create a copy in readline mode
+                wal_data_readline_copy = wal_data.copy()
+                wal_data_readline_copy.header.samples_per_message = 0
+
                 # Total write -> read
                 writer = WALWriter.from_metadata(
                     ".", wal_data.header,
@@ -69,12 +78,57 @@ class TestWALData(unittest.TestCase):
                 writer.write_wal_data(wal_data)
                 writer.close()
 
+                # Also write the copy in readline mode.
+                writer_readline = WALWriter.from_metadata(".", wal_data_readline_copy.header)
+                wal_data_readline_copy.prepare_byte_array()
+                writer_readline.write_wal_data(wal_data_readline_copy)
+                writer_readline.close()
+
+                # read and delete both files
                 reader = WALReader(writer.filename)
                 full_read_wal_data = reader.read_all()
                 os.remove(writer.filename)
                 full_read_wal_data.interpret_byte_array()
 
+                reader_readline = WALReader(writer_readline.filename)
+                full_read_wal_data_readline = reader_readline.read_all()
+                os.remove(writer_readline.filename)
+                full_read_wal_data_readline.interpret_byte_array()
+
                 self.assertTrue(full_read_wal_data == wal_data)
+
+                # Test readline mode
+                if wal_data.header.mode == ValueMode.TIME_VALUE_PAIRS.value:
+                    self.assertTrue(np.array_equal(
+                        full_read_wal_data_readline.value_data, wal_data.value_data))
+
+                elif wal_data.header.mode == ValueMode.INTERVALS.value:
+                    value_data = np.concatenate(
+                        [v[:wal_data.message_sizes[i]] for i, v in enumerate(wal_data.value_data)], axis=None)
+                    self.assertTrue(np.array_equal(
+                        full_read_wal_data_readline.value_data, value_data))
+
+                    # Test gap array equality
+                    normal_gap_array = create_gap_arr(
+                        wal_data.time_data, wal_data.header.samples_per_message, wal_data.header.sample_freq)
+
+                    readline_gap_arr = create_gap_arr_from_variable_messages(
+                        full_read_wal_data_readline.time_data,
+                        full_read_wal_data_readline.message_sizes,
+                        full_read_wal_data_readline.header.sample_freq)
+
+                    self.assertTrue(len(readline_gap_arr) == len(normal_gap_array))
+                    self.assertTrue(np.array_equal(readline_gap_arr, normal_gap_array))
+
+                else:
+                    raise ValueError(f"wal data mode {wal_data.header.mode} must be one of "
+                                     f"{[ValueMode.TIME_VALUE_PAIRS.value, ValueMode.INTERVALS.value]}")
+
+                self.assertTrue(np.array_equal(
+                    full_read_wal_data_readline.time_data, wal_data.time_data))
+
+                self.assertTrue(np.array_equal(
+                    full_read_wal_data_readline.message_sizes, wal_data.message_sizes))
 
                 wal_data_full_write_read_arr[wal_i] = full_read_wal_data
 
@@ -127,6 +181,35 @@ class TestWALData(unittest.TestCase):
             raise ValueError("{} not in {}.".format(mode, list(ValueMode)))
         wal_data_matrix = np.array(wal_data_matrix, dtype=WALData)
         return wal_data_matrix
+
+
+def create_gap_arr_from_variable_messages(time_data, message_sizes, sample_freq):
+    sample_freq = int(sample_freq)
+    result_list = []
+    current_sample = 0
+
+    for i in range(1, len(time_data)):
+        # Compute the time difference between consecutive messages
+        delta_t = time_data[i] - time_data[i - 1]
+
+        # Calculate the message period for the current message based on its size
+        current_message_size = int(message_sizes[i - 1])
+        current_message_period_ns = ((10 ** 18) * current_message_size) // sample_freq
+
+        # Check if the time difference doesn't match the expected message period
+        if delta_t != current_message_period_ns:
+            # Compute the extra duration (time gap) and the starting index of the gap
+            time_gap = delta_t - current_message_period_ns
+            gap_start_index = current_sample + current_message_size
+
+            # Add the gap information to the result list
+            result_list.extend([gap_start_index, time_gap])
+
+        # Update the current sample index for the next iteration
+        current_sample += current_message_size
+
+    # Convert the result list to a NumPy array of integers
+    return np.array(result_list, dtype=np.int64)
 
 
 if __name__ == '__main__':

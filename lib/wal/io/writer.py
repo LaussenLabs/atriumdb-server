@@ -65,13 +65,11 @@ class WALWriter:
     def write_interval_message(self, start_time_nominal: int, start_time_server: int, values: np.ndarray,
                                num_values: int = None, null_offset: int = 0):
         assert values.dtype == self.value_dtype
-        assert values.size == self.samples_per_message
 
         num_values = int(values.size) if num_values is None else int(num_values)
 
         self.current_file_pointer.write(
-            struct.pack("<qqII",
-                        int(start_time_nominal), int(start_time_server), int(num_values), int(null_offset)))
+            struct.pack("<qqII", int(start_time_nominal), int(start_time_server), int(num_values), int(null_offset)))
         self.current_file_pointer.write(values.tobytes())
         self.current_file_pointer.flush()
 
