@@ -12,7 +12,7 @@ svc_tsc_gen:
   # If you want it to create a new dataset on startup (good for dev)
   create_dataset: True
   interval_index_mode: "merge"
-  gap_tolerance: 10000000000
+  gap_tolerance: 5000000000
   metadb_connection: metadb
 
 #### BACKEND DATABASE ####
@@ -20,7 +20,7 @@ metadb:
   type: "mariadb" # can be one of ["mysql", "sqlite", "mariadb]
   host: "mariadb"
   port: 3306
-  db_name: "atriumdb"
+  db_name: "atriumdb-dev"
 
 
 #### WAL WRITER STUFF ####
@@ -35,7 +35,7 @@ svc_wal_writer:
   # If you want it to create a new dataset on startup (good for dev)
   create_dataset: True
   enable_siri: True
-  inbound_queue: "test_CMF"
+  inbound_queue: "test_queue"
   prefetch_count: 1000
   metadb_connection: metadb
 

@@ -211,7 +211,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-rest_api/.env
 .env
 .venv
 env/
@@ -267,3 +266,4 @@ pyrightconfig.json
 secrets.yaml
 config.yaml
 api.env
+/deploy/easy_dev_setup/data/

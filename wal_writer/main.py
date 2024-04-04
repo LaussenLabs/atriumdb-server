@@ -217,8 +217,14 @@ async def start_wal_writer():
             # Maximum message count which will be processing at the same time.
             await channel.set_qos(prefetch_count=config.svc_wal_writer['prefetch_count'])
 
-            # Declaring queues
-            queue = await channel.declare_queue(name=config.svc_wal_writer['inbound_queue'], passive=True, durable=True)
+            # make default queue for dev if none was specified
+            if config.svc_wal_writer['inbound_queue'] == "" or config.svc_wal_writer['inbound_queue'] == "test_queue":
+                _LOGGER.info("Queue name either empty or left as default creating default queue")
+                queue = await channel.declare_queue(name="test_queue", durable=True)
+
+            # if queue was specified connect to that queue
+            else:
+                queue = await channel.declare_queue(name=config.svc_wal_writer['inbound_queue'], passive=True, durable=True)
             _LOGGER.info("Starting Ingest")
 
             # start listening for messages

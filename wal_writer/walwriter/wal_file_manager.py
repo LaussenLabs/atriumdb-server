@@ -97,10 +97,8 @@ class WALFileManager:
                 header["input_value_type"] = ValueType.INT16.value
 
             # here no scaling is applied and floats are written to disk
-            elif meta_data is None:
-                header["input_value_type"] = ValueType.FLOAT64.value
             else:
-                raise NotImplementedError("This combination of scale factors has not yet been implemented. Please contact devs")
+                header["input_value_type"] = ValueType.FLOAT64.value
 
         # metrics dont get scaled
         elif msg_type == "met":
