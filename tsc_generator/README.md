@@ -9,7 +9,8 @@ The TSC generator interacts with two systems namely the WAL writer and the meta 
 - instance_name str: This is the name that specifies this install for open telemetry metrics.
 
 ## TSC Generator
-- max_workers int: This is the maximum number of worker threads to use for the time series compression.
+- max_workers int: This is how many sdk instances (processes) you want to spawn at a time. Each process can work on 1 wal file at a time.
+- num_compression_threads int: This is how many C compression threads (for compressing the data) you want to give to each sdk worker. num_workers * num_compression threads should not be more than how many cores you have allocated to docker. Be careful about how many workers you spawn because each one creates a mariadb connection and too many can overwhelm mariadb.
 - default_wait_close_time int: This is the amount of time to wait in seconds before closing a TSC file.
 - wait_recheck_time int: This is the amount of time in seconds to wait to check if there are closed WAL files in the wal folder. This stops the TSC generator from pinning a cpu core to 100% if there are no wal files to be aggregated.
 - optimal_block_num_values int: This specifies the optimal number of values to put into a single block. The higher this number is the smaller your block_index table will be. However, if you make it too big your read performance will suffer when asking for smaller segments of data since the sdk will have to decompress the entire block.
