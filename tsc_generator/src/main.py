@@ -44,8 +44,8 @@ def run_tsc_generator():
 
     _LOGGER.info("TSC generator started")
 
-    while not EXIT_EVENT.is_set():
-        with ProcessPoolExecutor(max_workers=config.svc_tsc_gen['max_workers']) as executor:
+    with ProcessPoolExecutor(max_workers=config.svc_tsc_gen['max_workers']) as executor:
+        while not EXIT_EVENT.is_set():
             ingest_futures = []
             file_iter = get_file_iter(config.svc_wal_writer['wal_folder_path'])
 
@@ -53,14 +53,17 @@ def run_tsc_generator():
                 future = executor.submit(tsc_generator_process, wal_path)
                 ingest_futures.append(future)
 
-            for future in as_completed(ingest_futures):
+            for future in ingest_futures:
                 try:
+                    as_completed([future], timeout=config.svc_tsc_gen['wal_file_timeout'])
+
                     # use dictionary to avoid large if-else block
                     counter_dict[future.result()].add(1)
+
                 except Exception as e:
-                    _LOGGER.error("Error occurred with worker while working on WAL file {}.".format(wal_path),
-                                  exc_info=True)
+                    _LOGGER.error("Error occurred with worker while working on WAL file {}.".format(wal_path), exc_info=True)
                     errors_counter.add(1)
+                    EXIT_EVENT.set()
                     raise e
 
             # If there are no wal files that need to be ingested wait before rechecking

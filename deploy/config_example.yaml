@@ -13,6 +13,7 @@ svc_tsc_gen:
   num_compression_threads: 1
   default_wait_close_time: 2700
   wait_recheck_time: 10
+  wal_file_timeout: 10
   optimal_block_num_values: 131072
   # If you want it to create a new dataset on startup (good for dev)
   create_dataset: True
