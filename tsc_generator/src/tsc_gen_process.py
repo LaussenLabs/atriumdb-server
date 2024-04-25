@@ -13,7 +13,7 @@ def tsc_generator_process(wal_path):
 
     if atrium_sdk is None:
         atrium_sdk = AtriumSDK(dataset_location=config.dataset_location, metadata_connection_type=config.svc_tsc_gen['metadb_connection']['type'],
-                               connection_params=config.CONNECTION_PARAMS)
+                               connection_params=config.CONNECTION_PARAMS, num_threads=config.svc_tsc_gen['num_compression_threads'])
         atrium_sdk.block.block_size = config.svc_tsc_gen['optimal_block_num_values']
 
     wal_data = read_wal_file(wal_path)

@@ -9,12 +9,16 @@ The TSC generator interacts with two systems namely the WAL writer and the meta 
 - instance_name str: This is the name that specifies this install for open telemetry metrics.
 
 ## TSC Generator
-- max_workers int: This is the maximum number of worker threads to use for the time series compression.
+- max_workers int: This is how many sdk instances (processes) you want to spawn at a time. Each process can work on 1 wal file at a time.
+- num_compression_threads int: This is how many C compression threads (for compressing the data) you want to give to each sdk worker. num_workers * num_compression threads should not be more than how many cores you have allocated to docker. Be careful about how many workers you spawn because each one creates a mariadb connection and too many can overwhelm mariadb.
 - default_wait_close_time int: This is the amount of time to wait in seconds before closing a TSC file.
 - wait_recheck_time int: This is the amount of time in seconds to wait to check if there are closed WAL files in the wal folder. This stops the TSC generator from pinning a cpu core to 100% if there are no wal files to be aggregated.
+- wal_file_timeout int: This is a timeout for one of the processes working on a WAL file. It is needed to prevent deadlock incase one of the processes cannot complete.
 - optimal_block_num_values int: This specifies the optimal number of values to put into a single block. The higher this number is the smaller your block_index table will be. However, if you make it too big your read performance will suffer when asking for smaller segments of data since the sdk will have to decompress the entire block.
 - create_dataset bool: This specifies if you want the tsc generator to create a dataset at startup. It will not overwrite a dataset if one already exists. This is good for dev if you are constantly needing to restart.
-- interval_index_mode str: Determines the mode for writing data to the interval index. Modes include "disable", "fast", and "merge". The default is "merge" and it is recommended to keep it this way. Unless you have really gappy data and it is slowing down the tsc generator too much. For more information on this setting see the write_data function in the Atriumdb docs. 
+- interval_index_mode str: Determines the mode for writing data to the interval index. Modes include "disable", "fast", and "merge". The default is "merge" and it is recommended to keep it this way. Unless you have really gappy data and it is slowing down the tsc generator too much. For more information on this setting see the write_data function in the Atriumdb docs.
+- gap_tolerance int: This is the number of nanoseconds that you are willing to tolerate before two intervals are merged into one. If this is 0 any discontinuity in the frequency of the timestamps will create a new interval. This can quickly lead to a lot of intervals in the interval index and make your database size grow quickly (which can slow down queries). 
+  The main idea of the intervals is so you can find areas of time in the dataset that have data. So really this tolerance should be set to what you consider continuous data. Generally that means the length of a patients stay in a bed, less any times they were disconnected from the monitor so 5000000000 nanoseconds (5 seconds) is what we made the default but depending on the monitor your collecting from this may or may not be necessary.
 - metadb_connection str: This is the name of the metadata database connection and should match the one specified in the config.
 
 ## Meta Database

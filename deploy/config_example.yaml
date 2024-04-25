@@ -5,9 +5,15 @@ instance_name: "adb_install_1"
 
 #### TSC GENERATOR STUFF ####
 svc_tsc_gen:
-  max_workers: None
+  # num_workers is how many sdk instances (processes) you want to spawn at a time. Each process can work on 1 wal file at a time.
+  # num_compression_threads is how many C compression threads you want to give to each sdk worker. num_workers * num_compression threads
+  # should not be more than how many cores you have allocated to docker. Be careful about how many workers you spawn because
+  # each one creates a mariadb connection and too many can overwhelm mariadb.
+  max_workers: 1
+  num_compression_threads: 1
   default_wait_close_time: 2700
   wait_recheck_time: 10
+  wal_file_timeout: 10
   optimal_block_num_values: 131072
   # If you want it to create a new dataset on startup (good for dev)
   create_dataset: True
