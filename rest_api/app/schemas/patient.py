@@ -5,7 +5,7 @@ from pydantic import BaseModel
 class Patient(BaseModel):
     id: int
     mrn: int
-    gender: Optional[int] = None
+    gender: Optional[str] = None
     dob: int
     first_name: Optional[str] = None  # needs to be optional because there's one patient in the database with no first name
     middle_name: Optional[str] = None
