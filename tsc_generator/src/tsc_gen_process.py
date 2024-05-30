@@ -8,7 +8,7 @@ _LOGGER = logging.getLogger(__name__)
 atrium_sdk = None
 
 
-def tsc_generator_process(wal_path):
+def tsc_generator_process(wal_path, device_measure):
     global atrium_sdk
 
     if atrium_sdk is None:
@@ -18,12 +18,17 @@ def tsc_generator_process(wal_path):
 
     wal_data = read_wal_file(wal_path)
 
+    # if the wal file is empty just remove it
     if wal_data is None:
         response = 2
         _LOGGER.info(f"{str(wal_path)} too small to ingest.")
         wal_path.unlink()
     else:
-        response = write_wal_data_to_sdk(wal_data, atrium_sdk)
+        try:
+            response = write_wal_data_to_sdk(wal_data, atrium_sdk)
+        except Exception:
+            response = -2
+            _LOGGER.error(f"Error occurred while trying to save WAL file {str(wal_path)} to AtriumDB", exc_info=True, stack_info=True)
 
     if response == 0:
         wal_path.unlink()
@@ -33,4 +38,4 @@ def tsc_generator_process(wal_path):
     elif response == 1:
         wal_path.unlink()
 
-    return response
+    return response, device_measure
