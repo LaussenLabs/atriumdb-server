@@ -5,6 +5,7 @@ import numpy as np
 import datetime as dt
 from atriumdb import AtriumSDK
 from wal import WALHeaderStructure
+from helpers import sql_functions
 from directory import get_file_iter
 from tsc_gen_process import tsc_generator_process
 from optimizer import delete_unreferenced_tsc_files, merge_small_tsc_files

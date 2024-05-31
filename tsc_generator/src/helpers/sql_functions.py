@@ -1,4 +1,5 @@
 from typing import List, Dict
+import os
 
 
 def undo_changes(sdk, filename_list, original_block_list):
