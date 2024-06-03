@@ -21,8 +21,8 @@ def merge_small_tsc_files(device_id, measure_id):
         sdk.block.block_size = config.svc_tsc_gen['optimal_block_num_values']
 
     # get blocks from tsc files that are not big enough
-    block_list = sdk.sql_handler.find_small_tsc_files(device_id=device_id, measure_id=measure_id,
-                                                      target_tsc_file_size=config.svc_tsc_gen['target_tsc_file_size'])
+    block_list = sql_functions.find_small_tsc_files(sdk=sdk, device_id=device_id, measure_id=measure_id,
+                                                    target_tsc_file_size=config.svc_tsc_gen['target_tsc_file_size'])
 
     # if there is only one tsc file then don't optimize since there is only one partly full tsc file
     if len(set([block[3] for block in block_list])) < 2:
@@ -163,7 +163,3 @@ def delete_unreferenced_tsc_files(sdk):
                 _LOGGER.info(f"Deleting tsc file {m} from disk")
                 os.remove(os.path.join(root, m))
     _LOGGER.info("Completed removal of unreferenced tsc files")
-
-
-
-
