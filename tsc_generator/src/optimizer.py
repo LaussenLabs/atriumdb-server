@@ -163,7 +163,3 @@ def delete_unreferenced_tsc_files(sdk):
                 _LOGGER.info(f"Deleting tsc file {m} from disk")
                 os.remove(os.path.join(root, m))
     _LOGGER.info("Completed removal of unreferenced tsc files")
-
-
-
-
