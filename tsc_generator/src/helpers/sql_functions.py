@@ -6,8 +6,8 @@ def undo_changes(sdk, filename_list, original_block_list):
     # not doing it in a transaction because if it doesn't get a chance to reinsert all of them, i want as many as
     # possible. Its also faster so less chance of it being interrupted
     with sdk.sql_handler.connection(begin=False) as (conn, cursor):
-        # reinsert the original blocks that were deleted to the block index
-        cursor.executemany("INSERT INTO block_index (id, measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values) "
+        # reinsert the original blocks that were deleted to the block index. The blocks may not have been deleted yet so use insert ignore
+        cursor.executemany("INSERT IGNORE INTO block_index (id, measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values) "
                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);", original_block_list)
 
         # delete the new optimized blocks that were added
@@ -39,9 +39,10 @@ def find_devices_measures_with_small_tsc_files(sdk, target_tsc_file_size):
 
 def find_small_tsc_files(sdk, device_id, measure_id, target_tsc_file_size):
     with sdk.sql_handler.connection() as (conn, cursor):
+        # order by start and end time so the blocks are rewritten in order
         cursor.execute("SELECT * FROM block_index WHERE device_id = ? AND measure_id = ? AND file_id IN "
                        "(SELECT file_id FROM block_index GROUP BY file_id HAVING SUM(num_bytes) < ?) "
-                       "ORDER BY file_id, start_byte ASC", (device_id, measure_id, target_tsc_file_size))
+                       "ORDER BY start_time_n, end_time_n ASC", (device_id, measure_id, target_tsc_file_size))
         return cursor.fetchall()
 
 

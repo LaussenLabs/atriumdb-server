@@ -36,28 +36,28 @@ def merge_small_tsc_files(device_id, measure_id):
                                                                   start_time=start_time, end_time=end_time)
     # tik = time.perf_counter()
 
-    # make read list as small as possible to speed up process
-    read_list = adb_functions.condense_byte_read_list(block_list)
-    # extract file ids from condensed read list and get the tsc file names they map to
-    file_id_list = [row[2] for row in read_list]
-    filename_dict = sdk.get_filename_dict(file_id_list)
-
-    _LOGGER.info(f"Merging {len(file_id_list)} tsc files for device_id={device_id}, measure_id={measure_id}")
-
-    # get encoded bytes from small tsc files
-    encoded_bytes = sdk.file_api.read_file_list(read_list, filename_dict)
+    _LOGGER.info(f"Merging {len(set([block[3] for block in block_list]))} tsc files for device_id={device_id}, measure_id={measure_id}")
 
     # figure out the parameters needed to merge smaller tsc files into bigger ones
-    new_blocks, byte_slices = make_optimal_tsc_files(device_id, measure_id, block_list)
+    new_block_batches, old_block_batch_slices = make_optimal_tsc_files(device_id, measure_id, block_list)
 
     # needed if the error happens during writing the files so the undo_changes doesn't fail with filenames being none
     filenames = []
     try:
-        # write the tsc files to disk by slicing sections off the encoded bytes
-        filenames = [sdk.file_api.write_bytes(measure_id, device_id, encoded_bytes[slice[0]:slice[1]]) for slice in byte_slices]
+        for block_batch_idxs in old_block_batch_slices:
+            # make read list as small as possible to speed up process
+            read_list = adb_functions.condense_byte_read_list(block_list[block_batch_idxs[0]:block_batch_idxs[1]])
+            # extract file ids from condensed read list and get the tsc file names they map to
+            file_id_list = [row[2] for row in read_list]
+            filename_dict = sdk.get_filename_dict(file_id_list)
+
+            # get encoded bytes from small tsc files
+            encoded_bytes = sdk.file_api.read_file_list(read_list, filename_dict)
+            # write the new tsc file to disk that contains the info
+            filenames.append(sdk.file_api.write_bytes(measure_id, device_id, encoded_bytes))
 
         # insert the new filenames and their associated blocks. Then delete the old blocks in one transaction
-        sql_functions.insert_optimized_tsc_block_data(sdk, filenames, new_blocks, blocks_old=block_list)
+        sql_functions.insert_optimized_tsc_block_data(sdk, filenames, new_block_batches, blocks_old=block_list)
 
         # _LOGGER.info(f"Merging tsc files took {time.perf_counter()-tik} s, for device_id={device_id}, measure_id={measure_id}")
 
@@ -76,9 +76,11 @@ def merge_small_tsc_files(device_id, measure_id):
         _LOGGER.error("Error occurred while adding new data to the database restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
 
+    _LOGGER.info(f"Finished merging tsc files for device_id={device_id}, measure_id={measure_id}")
+
 
 def make_optimal_tsc_files(device_id, measure_id, block_list):
-    start_byte, end_byte, block_start, start_byte_array, byte_slices, new_block_list = 0, 0, 0, [], [], []
+    start_byte, end_byte, block_start, start_byte_array, new_block_batches, old_block_batch_slices = 0, 0, 0, [], [], []
 
     for i, block in enumerate(block_list):
         # here we are cutting the bytes stream into >= the target file size
@@ -89,17 +91,19 @@ def make_optimal_tsc_files(device_id, measure_id, block_list):
             # once the number of bytes threshold has been reached slice the blocks needed out of the block_list
             if i+1 != len(block_list):
                 blocks = block_list[block_start:i]
+                # append the numbers needed to slice the old block list later for reading the encoded bytes in batches
+                old_block_batch_slices.append((block_start, i))
             else:
                 # if we have reached the end of the block list make sure to include the last block
                 blocks = block_list[block_start:]
+                # append the numbers needed to slice the old block list later for reading the encoded bytes in batches
+                old_block_batch_slices.append((block_start, len(block_list)))
+
                 start_byte_array.append(end_byte - start_byte)
                 end_byte += block[5]  # add num_bytes from the block to the end byte
 
-            # add the start and end byte needed to write the files to a list
-            byte_slices.append((start_byte, end_byte))
-
             # Gather block and file data for insertion into mariadb later
-            new_block_list.append([(measure_id, device_id, int(start_byte_array[i]), b[5], b[6], b[7], b[8]) for i, b in enumerate(blocks)])
+            new_block_batches.append([(measure_id, device_id, int(start_byte_array[i]), b[5], b[6], b[7], b[8]) for i, b in enumerate(blocks)])
 
             # set the start block to the current iteration
             block_start = i
@@ -114,7 +118,7 @@ def make_optimal_tsc_files(device_id, measure_id, block_list):
         # add the number of bytes in the block to the running total
         end_byte += block[5]
 
-    return new_block_list, byte_slices
+    return new_block_batches, old_block_batch_slices
 
 
 # This function is used to confirm that the data before the optimization is the same as the data after the optimization
