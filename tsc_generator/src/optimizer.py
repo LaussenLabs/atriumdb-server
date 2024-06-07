@@ -166,13 +166,13 @@ def delete_unreferenced_tsc_files(sdk):
     # extract file names from files and make it a set so we can do a set intersection later
     file_names = {file[1] for file in files}
 
-    # walk the tsc directory looking for files to delete
+    # walk the tsc directory looking for files to delete (os.walk is a generator for memory efficiency)
     for root, _, files in os.walk(sdk.file_api.top_level_dir):
         # check if there is a match between any of the tsc file names to be deleted and files in the current directory
         matches = set(files) & file_names
+
         # if you find a match remove the file from disk
-        if len(matches) > 0:
-            for m in matches:
-                _LOGGER.info(f"Deleting tsc file {m} from disk")
-                os.remove(os.path.join(root, m))
+        for m in matches:
+            _LOGGER.info(f"Deleting tsc file {m} from disk")
+            os.remove(os.path.join(root, m))
     _LOGGER.info("Completed removal of unreferenced tsc files")

@@ -58,9 +58,8 @@ def insert_optimized_tsc_block_data(sdk, file_names: List[str], blocks_new: List
             # insert into block_index
             block_tuples = [(block[0], block[1], file_id, block[2], block[3], block[4], block[5], block[6]) for block in
                             blocks]
-            cursor.executemany(
-                "INSERT INTO block_index (measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?);", block_tuples)
+            cursor.executemany("INSERT INTO block_index (measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values) "
+                               "VALUES (?, ?, ?, ?, ?, ?, ?, ?);", block_tuples)
 
         cursor.executemany("DELETE FROM block_index WHERE id = ?;", [(row[0],) for row in blocks_old])
 
