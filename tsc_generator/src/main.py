@@ -111,8 +111,10 @@ def run_tsc_generator():
                 # remove unreferenced tsc files so they don't get picked up by the tsc file size optimization
                 delete_unreferenced_tsc_files(sdk)
 
+                tik = time.perf_counter()
                 # find the measure device combinations that have undersized tsc files
                 device_measures_small_tsc = sql_functions.find_devices_measures_with_small_tsc_files(sdk, config.svc_tsc_gen['target_tsc_file_size'])
+                _LOGGER.info(f"Finding device measures with small tsc files took {time.perf_counter() - tik} s")
 
                 if len(device_measures_small_tsc) != 0:
                     _LOGGER.info("Starting tsc file size optimization")
@@ -142,6 +144,7 @@ def run_tsc_generator():
             # an hour before the optimizer is set to run reset the opt_ran_today variable so it will run again
             elif opt_ran_today and dt.datetime.now().hour == config.svc_tsc_gen['tsc_optimizer_run_time'] - 1:
                 opt_ran_today = False
+
 
 def signal_handler(signo, _frame):
     sig_lookup = {1: "HUP", 2: "INT", 15: "TERM"}

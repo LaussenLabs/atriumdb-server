@@ -20,30 +20,39 @@ def merge_small_tsc_files(device_id, measure_id):
                         connection_params=config.CONNECTION_PARAMS, num_threads=config.svc_tsc_gen['num_compression_threads'])
         sdk.block.block_size = config.svc_tsc_gen['optimal_block_num_values']
 
+    tik = time.perf_counter()
     # get blocks from tsc files that are not big enough
     block_list = sql_functions.find_small_tsc_files(sdk=sdk, device_id=device_id, measure_id=measure_id,
                                                     target_tsc_file_size=config.svc_tsc_gen['target_tsc_file_size'])
+    _LOGGER.info(f"Finding small tsc files took {time.perf_counter()-tik} s, for device_id={device_id}, measure_id={measure_id}")
 
     # if there is only one tsc file then don't optimize since there is only one partly full tsc file
-    if len(set([block[3] for block in block_list])) < 2:
+    num_tsc_fles = len(set([block[3] for block in block_list]))
+    if num_tsc_fles < 2:
         return 0
 
+    tik = time.perf_counter()
     # get the min start time and max end time of the blocks so you only checksum the data you need to
     start_time, end_time = min(block[6] for block in block_list), max(block[7] for block in block_list)
+    _LOGGER.info(f"Finding start and end times took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
+    tik = time.perf_counter()
     # checksum data to ensure before and after data are the same
     times_before_checksum, values_before_checksum = checksum_data(sdk=sdk, device_id=device_id, measure_id=measure_id,
                                                                   start_time=start_time, end_time=end_time)
-    # tik = time.perf_counter()
+    _LOGGER.info(f"Check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
-    _LOGGER.info(f"Merging {len(set([block[3] for block in block_list]))} tsc files for device_id={device_id}, measure_id={measure_id}")
+    _LOGGER.info(f"Merging {num_tsc_fles} tsc files for device_id={device_id}, measure_id={measure_id}")
 
+    tik = time.perf_counter()
     # figure out the parameters needed to merge smaller tsc files into bigger ones
     new_block_batches, old_block_batch_slices = make_optimal_tsc_files(device_id, measure_id, block_list)
+    _LOGGER.info(f"Creating block bahces took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
     # needed if the error happens during writing the files so the undo_changes doesn't fail with filenames being none
     filenames = []
     try:
+        tik = time.perf_counter()
         for block_batch_idxs in old_block_batch_slices:
             # make read list as small as possible to speed up process
             read_list = adb_functions.condense_byte_read_list(block_list[block_batch_idxs[0]:block_batch_idxs[1]])
@@ -59,7 +68,7 @@ def merge_small_tsc_files(device_id, measure_id):
         # insert the new filenames and their associated blocks. Then delete the old blocks in one transaction
         sql_functions.insert_optimized_tsc_block_data(sdk, filenames, new_block_batches, blocks_old=block_list)
 
-        # _LOGGER.info(f"Merging tsc files took {time.perf_counter()-tik} s, for device_id={device_id}, measure_id={measure_id}")
+        _LOGGER.info(f"Merging tsc files took {time.perf_counter()-tik} s, for device_id={device_id}, measure_id={measure_id}")
 
         # confirm old and new tsc files have the same data
         times_after_checksum, values_after_checksum = checksum_data(sdk=sdk, device_id=device_id, measure_id=measure_id,
@@ -154,13 +163,13 @@ def delete_unreferenced_tsc_files(sdk):
     # remove them from the file_index
     sql_functions.delete_tsc_files(sdk, files)
 
-    # extract file names from files
-    file_names = [file[1] for file in files]
+    # extract file names from files and make it a set so we can do a set intersection later
+    file_names = {file[1] for file in files}
 
     # walk the tsc directory looking for files to delete
-    for root, dirs, files in os.walk(sdk.file_api.top_level_dir):
+    for root, _, files in os.walk(sdk.file_api.top_level_dir):
         # check if there is a match between any of the tsc file names to be deleted and files in the current directory
-        matches = set(files) & set(file_names)
+        matches = set(files) & file_names
         # if you find a match remove the file from disk
         if len(matches) > 0:
             for m in matches:
