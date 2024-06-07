@@ -31,10 +31,8 @@ def merge_small_tsc_files(device_id, measure_id):
     if num_tsc_fles < 2:
         return 0
 
-    tik = time.perf_counter()
     # get the min start time and max end time of the blocks so you only checksum the data you need to
     start_time, end_time = min(block[6] for block in block_list), max(block[7] for block in block_list)
-    _LOGGER.info(f"Finding start and end times took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
     tik = time.perf_counter()
     # checksum data to ensure before and after data are the same
@@ -44,10 +42,8 @@ def merge_small_tsc_files(device_id, measure_id):
 
     _LOGGER.info(f"Merging {num_tsc_fles} tsc files for device_id={device_id}, measure_id={measure_id}")
 
-    tik = time.perf_counter()
     # figure out the parameters needed to merge smaller tsc files into bigger ones
     new_block_batches, old_block_batch_slices = make_optimal_tsc_files(device_id, measure_id, block_list)
-    _LOGGER.info(f"Creating block bahces took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
     # needed if the error happens during writing the files so the undo_changes doesn't fail with filenames being none
     filenames = []
@@ -70,9 +66,12 @@ def merge_small_tsc_files(device_id, measure_id):
 
         _LOGGER.info(f"Merging tsc files took {time.perf_counter()-tik} s, for device_id={device_id}, measure_id={measure_id}")
 
+        tik = time.perf_counter()
         # confirm old and new tsc files have the same data
         times_after_checksum, values_after_checksum = checksum_data(sdk=sdk, device_id=device_id, measure_id=measure_id,
                                                                     start_time=start_time, end_time=end_time)
+
+        _LOGGER.info(f"Second check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
         # make sure checksums match
         assert times_before_checksum == times_after_checksum
         assert values_before_checksum == values_after_checksum

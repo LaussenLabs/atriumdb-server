@@ -41,9 +41,9 @@ def find_devices_measures_with_small_tsc_files(sdk, target_tsc_file_size):
 def find_small_tsc_files(sdk, device_id, measure_id, target_tsc_file_size):
     with sdk.sql_handler.connection() as (conn, cursor):
         # order by start and end time so the blocks are rewritten in order
-        cursor.execute("SELECT * FROM block_index WHERE device_id = ? AND measure_id = ? AND file_id IN "
-                       "(SELECT file_id FROM block_index GROUP BY file_id HAVING SUM(num_bytes) < ?) "
-                       "ORDER BY start_time_n, end_time_n ASC", (device_id, measure_id, target_tsc_file_size))
+        cursor.execute("SELECT * FROM block_index WHERE measure_id = ? AND device_id = ? AND file_id IN "
+                       "(SELECT file_id FROM block_index WHERE measure_id = ? AND device_id = ? GROUP BY file_id HAVING SUM(num_bytes) < ?) "
+                       "ORDER BY start_time_n, end_time_n ASC", (measure_id, device_id, measure_id, device_id, target_tsc_file_size))
         return cursor.fetchall()
 
 
