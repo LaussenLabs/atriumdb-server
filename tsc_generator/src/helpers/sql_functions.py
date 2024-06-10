@@ -6,8 +6,8 @@ def undo_changes(sdk, filename_list, original_block_list):
     # not doing it in a transaction because if it doesn't get a chance to reinsert all of them, i want as many as
     # possible. Its also faster so less chance of it being interrupted
     with sdk.sql_handler.connection(begin=False) as (conn, cursor):
-        # reinsert the original blocks that were deleted to the block index
-        cursor.executemany("INSERT INTO block_index (id, measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values) "
+        # reinsert the original blocks that were deleted to the block index. The blocks may not have been deleted yet so use insert ignore
+        cursor.executemany("INSERT IGNORE INTO block_index (id, measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values) "
                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);", original_block_list)
 
         # delete the new optimized blocks that were added
@@ -31,17 +31,19 @@ def find_unreferenced_tsc_files(sdk):
 
 def find_devices_measures_with_small_tsc_files(sdk, target_tsc_file_size):
     with sdk.sql_handler.connection() as (conn, cursor):
-        cursor.execute("SELECT DISTINCT device_id, measure_id FROM block_index WHERE file_id IN "
-                       "(SELECT file_id FROM block_index GROUP BY file_id HAVING SUM(num_bytes) < ?)",
+        cursor.execute("SELECT device_id, measure_id FROM block_index WHERE file_id IN "
+                       "(SELECT file_id FROM block_index GROUP BY file_id HAVING SUM(num_bytes) < ?)"
+                       " GROUP BY device_id, measure_id HAVING COUNT(file_id) >= 2",
                        (target_tsc_file_size,))
         return cursor.fetchall()
 
 
 def find_small_tsc_files(sdk, device_id, measure_id, target_tsc_file_size):
     with sdk.sql_handler.connection() as (conn, cursor):
-        cursor.execute("SELECT * FROM block_index WHERE device_id = ? AND measure_id = ? AND file_id IN "
-                       "(SELECT file_id FROM block_index GROUP BY file_id HAVING SUM(num_bytes) < ?) "
-                       "ORDER BY file_id, start_byte ASC", (device_id, measure_id, target_tsc_file_size))
+        # order by start and end time so the blocks are rewritten in order
+        cursor.execute("SELECT * FROM block_index WHERE measure_id = ? AND device_id = ? AND file_id IN "
+                       "(SELECT file_id FROM block_index WHERE measure_id = ? AND device_id = ? GROUP BY file_id HAVING SUM(num_bytes) < ?) "
+                       "ORDER BY start_time_n, end_time_n ASC", (measure_id, device_id, measure_id, device_id, target_tsc_file_size))
         return cursor.fetchall()
 
 
@@ -56,9 +58,8 @@ def insert_optimized_tsc_block_data(sdk, file_names: List[str], blocks_new: List
             # insert into block_index
             block_tuples = [(block[0], block[1], file_id, block[2], block[3], block[4], block[5], block[6]) for block in
                             blocks]
-            cursor.executemany(
-                "INSERT INTO block_index (measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?);", block_tuples)
+            cursor.executemany("INSERT INTO block_index (measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values) "
+                               "VALUES (?, ?, ?, ?, ?, ?, ?, ?);", block_tuples)
 
         cursor.executemany("DELETE FROM block_index WHERE id = ?;", [(row[0],) for row in blocks_old])
 
