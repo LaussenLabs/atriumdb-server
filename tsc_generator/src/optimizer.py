@@ -159,11 +159,14 @@ def delete_unreferenced_tsc_files(sdk):
     if len(files) == 0:
         _LOGGER.info("No unreferenced tsc files to remove")
         return
-    # remove them from the file_index
-    sql_functions.delete_tsc_files(sdk, files)
 
     # extract file names from files and make it a set so we can do a set intersection later
     file_names = {file[1] for file in files}
+    # extract the ids and put them in a tuple so we can remove them from the sql table later
+    file_ids = [(file[0],) for file in files]
+
+    # free up memory
+    del files
 
     # walk the tsc directory looking for files to delete (os.walk is a generator for memory efficiency)
     for root, _, files in os.walk(sdk.file_api.top_level_dir):
@@ -174,4 +177,10 @@ def delete_unreferenced_tsc_files(sdk):
         for m in matches:
             _LOGGER.info(f"Deleting tsc file {m} from disk")
             os.remove(os.path.join(root, m))
+
+    # free up memory
+    del file_names
+
+    # remove them from the file_index
+    sql_functions.delete_tsc_files(sdk, file_ids)
     _LOGGER.info("Completed removal of unreferenced tsc files")

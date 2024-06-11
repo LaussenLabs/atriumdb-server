@@ -64,7 +64,7 @@ def insert_optimized_tsc_block_data(sdk, file_names: List[str], blocks_new: List
         cursor.executemany("DELETE FROM block_index WHERE id = ?;", [(row[0],) for row in blocks_old])
 
 
-def delete_tsc_files(sdk, files_to_delete: List[List]):
-    with sdk.sql_handler.connection(begin=True) as (conn, cursor):
+def delete_tsc_files(sdk, file_ids_to_delete: List[tuple]):
+    with sdk.sql_handler.connection(begin=False) as (conn, cursor):
         # delete old block data
-        cursor.executemany("DELETE FROM file_index WHERE id = ?;", [(row[0],) for row in files_to_delete])
+        cursor.executemany("DELETE FROM file_index WHERE id = ?;", file_ids_to_delete)
