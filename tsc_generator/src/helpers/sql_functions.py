@@ -1,3 +1,4 @@
+import math
 from typing import List, Dict
 import os
 
@@ -66,5 +67,8 @@ def insert_optimized_tsc_block_data(sdk, file_names: List[str], blocks_new: List
 
 def delete_tsc_files(sdk, file_ids_to_delete: List[tuple]):
     with sdk.sql_handler.connection(begin=False) as (conn, cursor):
-        # delete old block data
-        cursor.executemany("DELETE FROM file_index WHERE id = ?;", file_ids_to_delete)
+
+        # if you put too many rows in the delete statement mariadb will fail so split it up
+        for i in range(math.ceil(len(file_ids_to_delete)/100_000)):
+            # delete old block data
+            cursor.executemany("DELETE FROM file_index WHERE id = ?;", file_ids_to_delete[i*100_000:(i+1)*100_000])
