@@ -78,10 +78,10 @@ def merge_small_tsc_files(device_id, measure_id):
 
     # If checksums do not equal each other or there is another error undo the changes
     except AssertionError as e:
-        _LOGGER.error("Checksums do not match restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
+        _LOGGER.error(f"Checksums do not match for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
     except Exception as e:
-        _LOGGER.error("Error occurred while adding new data to the database restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
+        _LOGGER.error("Error occurred while adding new data to the database for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
 
     _LOGGER.info(f"Finished merging tsc files for device_id={device_id}, measure_id={measure_id}")
