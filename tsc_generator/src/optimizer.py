@@ -3,6 +3,7 @@ import os
 import logging
 import time
 import xxhash
+import numpy as np
 from config import config
 from atriumdb import AtriumSDK, adb_functions
 from helpers import sql_functions
@@ -43,13 +44,13 @@ def merge_small_tsc_files(device_id, measure_id):
     _LOGGER.info(f"Merging {num_tsc_fles} tsc files for device_id={device_id}, measure_id={measure_id}")
 
     # figure out the parameters needed to merge smaller tsc files into bigger ones
-    new_block_batches, old_block_batch_slices = make_optimal_tsc_files(device_id, measure_id, block_list)
+    start_byte_array, block_batch_slices = make_optimal_tsc_files(block_list)
 
     # needed if the error happens during writing the files so the undo_changes doesn't fail with filenames being none
     filenames = []
     try:
         tik = time.perf_counter()
-        for block_batch_idxs in old_block_batch_slices:
+        for block_batch_idxs in block_batch_slices:
             # make read list as small as possible to speed up process
             read_list = adb_functions.condense_byte_read_list(block_list[block_batch_idxs[0]:block_batch_idxs[1]])
             # extract file ids from condensed read list and get the tsc file names they map to
@@ -62,7 +63,7 @@ def merge_small_tsc_files(device_id, measure_id):
             filenames.append(sdk.file_api.write_bytes(measure_id, device_id, encoded_bytes))
 
         # insert the new filenames and their associated blocks. Then delete the old blocks in one transaction
-        sql_functions.insert_optimized_tsc_block_data(sdk, filenames, new_block_batches, blocks_old=block_list)
+        sql_functions.update_block_tsc_data(sdk, filenames, block_list, block_batch_slices, start_byte_array)
 
         _LOGGER.info(f"Merging tsc files took {time.perf_counter()-tik} s, for device_id={device_id}, measure_id={measure_id}")
 
@@ -78,55 +79,36 @@ def merge_small_tsc_files(device_id, measure_id):
 
     # If checksums do not equal each other or there is another error undo the changes
     except AssertionError as e:
-        _LOGGER.error(f"Checksums do not match for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
+        _LOGGER.error(f"Both checksums do not match for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
     except Exception as e:
-        _LOGGER.error("Error occurred while adding new data to the database for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
+        _LOGGER.error(f"Error occurred while adding new data to the database for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
 
     _LOGGER.info(f"Finished merging tsc files for device_id={device_id}, measure_id={measure_id}")
 
 
-def make_optimal_tsc_files(device_id, measure_id, block_list):
-    start_byte, end_byte, block_start, start_byte_array, new_block_batches, old_block_batch_slices = 0, 0, 0, [], [], []
+def make_optimal_tsc_files(block_list):
+    start_byte, end_byte, block_start, start_byte_array, block_batch_slices = 0, 0, 0, [], []
 
     for i, block in enumerate(block_list):
+
+        start_byte_array.append(end_byte-start_byte)
+        end_byte += block[5]
+
         # here we are cutting the bytes stream into >= the target file size
         # if we go over the target tsc file size that's okay, but we must not be under the target size or the
         # optimizer will try to optimize this file again on the next optimizer run
-        if end_byte - start_byte >= config.svc_tsc_gen['target_tsc_file_size'] or i+1 == len(block_list):
+        if end_byte >= config.svc_tsc_gen['target_tsc_file_size'] or i+1 == len(block_list):
 
-            # once the number of bytes threshold has been reached slice the blocks needed out of the block_list
-            if i+1 != len(block_list):
-                blocks = block_list[block_start:i]
-                # append the numbers needed to slice the old block list later for reading the encoded bytes in batches
-                old_block_batch_slices.append((block_start, i))
-            else:
-                # if we have reached the end of the block list make sure to include the last block
-                blocks = block_list[block_start:]
-                # append the numbers needed to slice the old block list later for reading the encoded bytes in batches
-                old_block_batch_slices.append((block_start, len(block_list)))
-
-                start_byte_array.append(end_byte - start_byte)
-                end_byte += block[5]  # add num_bytes from the block to the end byte
-
-            # Gather block and file data for insertion into mariadb later
-            new_block_batches.append([(measure_id, device_id, int(start_byte_array[i]), b[5], b[6], b[7], b[8]) for i, b in enumerate(blocks)])
+            # append the numbers needed to slice the old block list later for reading the encoded bytes in batches
+            block_batch_slices.append((block_start, i + 1))
 
             # set the start block to the current iteration
-            block_start = i
-            # set the new start byte to the current end byte
-            start_byte = end_byte
-            # reset the start bytes list
-            start_byte_array = []
+            block_start = i + 1
+            start_byte, end_byte = 0, 0
 
-        # append the starting byte of the block to the list for later insertion
-        start_byte_array.append(end_byte-start_byte)
-
-        # add the number of bytes in the block to the running total
-        end_byte += block[5]
-
-    return new_block_batches, old_block_batch_slices
+    return start_byte_array, block_batch_slices
 
 
 # This function is used to confirm that the data before the optimization is the same as the data after the optimization
@@ -134,7 +116,7 @@ def checksum_data(sdk, device_id, measure_id, start_time, end_time):
 
     freq_nhz = sdk.get_measure_info(measure_id)['freq_nhz']
     # find time chunk size for hashing
-    time_chunk_size = (config.svc_tsc_gen['num_blocks_checksum'] * config.svc_tsc_gen['optimal_block_num_values']) * ((10**18) / freq_nhz)
+    time_chunk_size = (config.svc_tsc_gen['num_blocks_checksum'] * config.svc_tsc_gen['optimal_block_num_values']) * ((10 ** 18) / freq_nhz)
     num_chunks = math.ceil((end_time - start_time) / time_chunk_size)
 
     times_hash, values_hash = xxhash.xxh3_128(), xxhash.xxh3_128()
@@ -143,6 +125,18 @@ def checksum_data(sdk, device_id, measure_id, start_time, end_time):
         _, times, values = sdk.get_data(measure_id=measure_id, start_time_n=start_time + (time_chunk_size * i),
                                         end_time_n=start_time + (time_chunk_size * (i+1)), device_id=device_id,
                                         sort=True, allow_duplicates=True)
+
+        # check if there are any duplicate times and if they are also sort the values, you have to do this since the
+        # sort by time is nondeterministic so if you have two timestamps with different values you could get
+        # value1, value2 or value2, value1 which would mess up the values checksum
+        if np.any(times[:-1] == times[1:]):
+            # tik = time.perf_counter()
+            # Use lexsort to sort by times and then by values
+            sorted_indices = np.lexsort((values, times))
+            # _LOGGER.info(f"Lexsort took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
+
+            # Apply the sorted indices to both times and values
+            times, values = times[sorted_indices], values[sorted_indices]
 
         if times.size != 0:
             times_hash.update(times) if times.dtype == 'int64' else times_hash.update(times.data)
