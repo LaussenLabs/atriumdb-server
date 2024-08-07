@@ -127,7 +127,7 @@ def run_tsc_generator():
                     # wait for all the futures to complete
                     for future in futures:
                         try:
-                            future.result(timeout=config.svc_tsc_gen['tsc_file_optimization_timeout'])
+                            _ = future.result(timeout=config.svc_tsc_gen['tsc_file_optimization_timeout'])
                         except TimeoutError:
                             _LOGGER.error(f"Timeout occurred while optimizing tsc files for device_id={device_id} and measure_id={measure_id}", stack_info=True, exc_info=True)
                             EXIT_EVENT.set()
@@ -136,11 +136,13 @@ def run_tsc_generator():
                     _LOGGER.info(f"Total time to rollup tsc files took {str(dt.timedelta(seconds=int(time.perf_counter() - start_bench)))} hh:mm:ss")
                 else:
                     _LOGGER.info("All tsc file sizes are optimal. Skipping optimization for today")
+
                 # delete all the old tsc files that were put into new bigger files
                 delete_unreferenced_tsc_files(sdk)
 
                 opt_ran_today = True
                 sdk.close()
+                _LOGGER.info("SDK successfully closed connections")
 
             # an hour before the optimizer is set to run reset the opt_ran_today variable so it will run again
             elif opt_ran_today and dt.datetime.now().hour == config.svc_tsc_gen['tsc_optimizer_run_time'] - 1:

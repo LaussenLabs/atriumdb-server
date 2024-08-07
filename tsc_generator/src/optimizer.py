@@ -86,6 +86,7 @@ def merge_small_tsc_files(device_id, measure_id):
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
 
     _LOGGER.info(f"Finished merging tsc files for device_id={device_id}, measure_id={measure_id}")
+    return 1
 
 
 def make_optimal_tsc_files(block_list):
