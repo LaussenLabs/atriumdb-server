@@ -139,7 +139,8 @@ def run_tsc_generator():
                 # delete all the old tsc files that were put into new bigger files
                 delete_unreferenced_tsc_files(sdk)
 
-                opt_ran_today, sdk = True, None
+                opt_ran_today = True
+                sdk.close()
 
             # an hour before the optimizer is set to run reset the opt_ran_today variable so it will run again
             elif opt_ran_today and dt.datetime.now().hour == config.svc_tsc_gen['tsc_optimizer_run_time'] - 1:
