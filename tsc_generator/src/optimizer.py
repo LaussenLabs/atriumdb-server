@@ -3,7 +3,6 @@ import os
 import logging
 import time
 import xxhash
-import numpy as np
 from config import config
 from atriumdb import AtriumSDK, adb_functions
 from helpers import sql_functions
@@ -32,13 +31,10 @@ def merge_small_tsc_files(device_id, measure_id):
     if num_tsc_fles < 2:
         return 0
 
-    # get the min start time and max end time of the blocks so you only checksum the data you need to
-    start_time, end_time = min(block[6] for block in block_list), max(block[7] for block in block_list)
-
     tik = time.perf_counter()
     # checksum data to ensure before and after data are the same
-    times_before_checksum, values_before_checksum = checksum_data(sdk=sdk, device_id=device_id, measure_id=measure_id,
-                                                                  start_time=start_time, end_time=end_time)
+    checksum_before = checksum_data(sdk, block_list)
+
     _LOGGER.info(f"Check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
     _LOGGER.info(f"Merging {num_tsc_fles} tsc files for device_id={device_id}, measure_id={measure_id}")
@@ -67,26 +63,26 @@ def merge_small_tsc_files(device_id, measure_id):
 
         _LOGGER.info(f"Merging tsc files took {time.perf_counter()-tik} s, for device_id={device_id}, measure_id={measure_id}")
 
+        # get the new blocks by using the tsc filenames
+        new_blocks = sql_functions.select_blocks_by_file(sdk, filenames)
+
         tik = time.perf_counter()
-        # confirm old and new tsc files have the same data
-        times_after_checksum, values_after_checksum = checksum_data(sdk=sdk, device_id=device_id, measure_id=measure_id,
-                                                                    start_time=start_time, end_time=end_time)
+        # checksum the new blocks
+        checksum_after = checksum_data(sdk, new_blocks)
 
         _LOGGER.info(f"Second check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
         # make sure checksums match
-        assert times_before_checksum == times_after_checksum
-        assert values_before_checksum == values_after_checksum
+        assert checksum_after == checksum_before
 
     # If checksums do not equal each other or there is another error undo the changes
     except AssertionError as e:
-        _LOGGER.error(f"Both checksums do not match for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
+        _LOGGER.error(f"Checksums do not match for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
     except Exception as e:
         _LOGGER.error(f"Error occurred while adding new data to the database for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
 
     _LOGGER.info(f"Finished merging tsc files for device_id={device_id}, measure_id={measure_id}")
-    return 1
 
 
 def make_optimal_tsc_files(block_list):
@@ -113,37 +109,25 @@ def make_optimal_tsc_files(block_list):
 
 
 # This function is used to confirm that the data before the optimization is the same as the data after the optimization
-def checksum_data(sdk, device_id, measure_id, start_time, end_time):
+def checksum_data(sdk, block_list):
 
-    freq_nhz = sdk.get_measure_info(measure_id)['freq_nhz']
-    # find time chunk size for hashing
-    time_chunk_size = (config.svc_tsc_gen['num_blocks_checksum'] * config.svc_tsc_gen['optimal_block_num_values']) * ((10 ** 18) / freq_nhz)
-    num_chunks = math.ceil((end_time - start_time) / time_chunk_size)
+    num_chunks = math.ceil(len(block_list) / config.svc_tsc_gen['num_blocks_checksum'])
+    checksum = xxhash.xxh3_128()
 
-    times_hash, values_hash = xxhash.xxh3_128(), xxhash.xxh3_128()
     for i in range(num_chunks):
 
-        _, times, values = sdk.get_data(measure_id=measure_id, start_time_n=start_time + (time_chunk_size * i),
-                                        end_time_n=start_time + (time_chunk_size * (i+1)), device_id=device_id,
-                                        sort=True, allow_duplicates=True)
+        # make read list as small as possible to speed up process
+        read_list = adb_functions.condense_byte_read_list(block_list[i*config.svc_tsc_gen['num_blocks_checksum']:(i+1)*config.svc_tsc_gen['num_blocks_checksum']])
+        # extract file ids from condensed read list and get the tsc file names they map to
+        file_id_list = [row[2] for row in read_list]
+        filename_dict = sdk.get_filename_dict(file_id_list)
+        # get encoded bytes from tsc files
+        encoded_bytes = sdk.file_api.read_file_list(read_list, filename_dict)
 
-        # check if there are any duplicate times and if they are also sort the values, you have to do this since the
-        # sort by time is nondeterministic so if you have two timestamps with different values you could get
-        # value1, value2 or value2, value1 which would mess up the values checksum
-        if np.any(times[:-1] == times[1:]):
-            # tik = time.perf_counter()
-            # Use lexsort to sort by times and then by values
-            sorted_indices = np.lexsort((values, times))
-            # _LOGGER.info(f"Lexsort took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
+        # update the checksum
+        checksum.update(encoded_bytes)
 
-            # Apply the sorted indices to both times and values
-            times, values = times[sorted_indices], values[sorted_indices]
-
-        if times.size != 0:
-            times_hash.update(times) if times.dtype == 'int64' else times_hash.update(times.data)
-            values_hash.update(values.data)
-
-    return times_hash.hexdigest(), values_hash.hexdigest()
+    return checksum.hexdigest()
 
 
 def delete_unreferenced_tsc_files(sdk):

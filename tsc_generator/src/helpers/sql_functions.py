@@ -45,10 +45,22 @@ def update_block_tsc_data(sdk, file_names: List[str], blocks_old: List[Dict], bl
             cursor.executemany("UPDATE block_index SET file_id = ?, start_byte = ? WHERE id = ?;", update_tuples)
 
 
+def select_blocks_by_file(sdk, file_names: List[str]):
+    with sdk.sql_handler.connection(begin=False) as (conn, cursor):
+        # use the file names to get the file_ids
+        cursor.execute("SELECT id FROM file_index WHERE path IN ({})".format(','.join(['?'] * len(file_names))), tuple(file_names))
+        file_ids = cursor.fetchall()
+
+        cursor.execute("SELECT id, measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values"
+                       " FROM block_index WHERE file_id IN ({}) ORDER BY start_time_n ASC, end_time_n ASC".format(','.join(['?'] * len(file_ids))), tuple([id[0] for id in file_ids]))
+
+        return cursor.fetchall()
+
+
 def delete_tsc_files(sdk, file_ids_to_delete: List[tuple]):
     with sdk.sql_handler.connection(begin=False) as (conn, cursor):
 
-        # if you put too many rows in the delete statement mariadb will fail so split it up
+        # if you put too many rows in the delete statement mariadb will fail. So we split it up
         for i in range(math.ceil(len(file_ids_to_delete)/100_000)):
             # delete old block data
             cursor.executemany("DELETE FROM file_index WHERE id = ?;", file_ids_to_delete[i*100_000:(i+1)*100_000])
