@@ -12,9 +12,9 @@ def find_unreferenced_tsc_files(sdk):
 
 def find_devices_measures_with_small_tsc_files(sdk, target_tsc_file_size):
     with sdk.sql_handler.connection() as (conn, cursor):
-        cursor.execute("SELECT device_id, measure_id FROM block_index WHERE file_id IN "
+        cursor.execute("SELECT measure_id, device_id FROM block_index WHERE file_id IN "
                        "(SELECT file_id FROM block_index GROUP BY file_id HAVING SUM(num_bytes) < ?)"
-                       " GROUP BY device_id, measure_id HAVING COUNT(DISTINCT file_id) >= 2",
+                       " GROUP BY measure_id, device_id HAVING COUNT(DISTINCT file_id) >= 2",
                        (target_tsc_file_size,))
         return cursor.fetchall()
 

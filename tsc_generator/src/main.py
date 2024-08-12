@@ -120,7 +120,7 @@ def run_tsc_generator():
                     _LOGGER.info("Starting tsc file size optimization")
                     start_bench = time.perf_counter()
 
-                    for device_id, measure_id in device_measures_small_tsc:
+                    for measure_id, device_id in device_measures_small_tsc:
                         future = executor.submit(merge_small_tsc_files, device_id, measure_id)
                         futures.append(future)
 
