@@ -93,7 +93,7 @@ def run_tsc_generator():
                         EXIT_EVENT.set()
 
                 except TimeoutError:
-                    _LOGGER.error("Timeout occurred while working on WAL file", stack_info=True, exc_info=True)
+                    _LOGGER.error("Timeout occurred while working on WAL file. If the keeps happening consider making the wal_file_timeout variable larger.", stack_info=True, exc_info=True)
                     counter_dict[-2].add(1)
                     EXIT_EVENT.set()
 
@@ -129,7 +129,7 @@ def run_tsc_generator():
                         try:
                             future.result(timeout=config.svc_tsc_gen['tsc_file_optimization_timeout'])
                         except TimeoutError:
-                            _LOGGER.error(f"Timeout occurred while optimizing tsc files", stack_info=True, exc_info=True)
+                            _LOGGER.error(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.", stack_info=True, exc_info=True)
                             EXIT_EVENT.set()
 
                     _LOGGER.info("Completed tsc file size optimization")
