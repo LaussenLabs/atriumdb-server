@@ -42,7 +42,7 @@ def merge_small_tsc_files(device_id, measure_id):
         bytes_total += block[5]
 
         # if the sum is greater than the file size than break
-        if bytes_total > config.config.svc_tsc_gen['target_tsc_file_size']:
+        if bytes_total > config.svc_tsc_gen['target_tsc_file_size']:
             idx = i
             break
 
