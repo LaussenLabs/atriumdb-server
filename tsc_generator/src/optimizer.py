@@ -2,10 +2,11 @@ import math
 import logging
 import time
 import xxhash
+import os
 from config import config
 from atriumdb import AtriumSDK, adb_functions
 from helpers import sql_functions
-from pathlib import Path
+
 
 # the max number of blocks to optimize for a run
 MAX_BLOCKS_PER_RUN = 100_000
