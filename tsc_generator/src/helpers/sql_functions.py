@@ -5,7 +5,7 @@ import os
 
 def find_unreferenced_tsc_files(sdk):
     with sdk.sql_handler.connection() as (conn, cursor):
-        cursor.execute("SELECT t1.id, t2.device_id, t2.measure_id, t1.path FROM file_index t1 LEFT JOIN (SELECT DISTINCT file_id FROM block_index) t2 "
+        cursor.execute("SELECT t1.id, t1.path FROM file_index t1 LEFT JOIN (SELECT DISTINCT file_id FROM block_index) t2 "
                        "ON t1.id = t2.file_id WHERE t2.file_id IS NULL")
         return cursor.fetchall()
 

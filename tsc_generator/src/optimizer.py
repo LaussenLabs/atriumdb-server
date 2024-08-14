@@ -151,25 +151,34 @@ def checksum_data(sdk, block_list):
 
 
 def delete_unreferenced_tsc_files(sdk):
-    _LOGGER.info("Starting removal of unreferenced tsc files")
     # find tsc files in the file_index that have no references to them in the block_index
-    file_info = sql_functions.find_unreferenced_tsc_files(sdk)
+    files = sdk.sql_handler.find_unreferenced_tsc_files()
 
-    if len(file_info) == 0:
-        _LOGGER.info("No unreferenced tsc files to remove")
+    # if there are no tsc files to remove just return
+    if len(files) == 0:
         return
 
+    # extract file names from files and make it a set so we can do a set intersection later
+    file_names = {file[1] for file in files}
     # extract the ids and put them in a tuple so we can remove them from the sql table later
-    file_ids = [(file[0],) for file in file_info]
+    file_ids = [(file[0],) for file in files]
 
-    for file in file_info:
-        # make a path using device_id, measure_id, and file_name from the returned sql row and delete the file
-        (Path(sdk.file_api.top_level_dir) / file[1] / file[2] / file[3]).unlink(missing_ok=True)
-        _LOGGER.info(f"Deleting tsc file {file[3]} from disk")
+    # walk the tsc directory looking for files to delete (walk is a generator for memory efficiency)
+    for root, dir_names, files in os.walk(sdk.file_api.top_level_dir):
+        # remove any dirs that are not digits (device_id or measure_id) so walk doesn't traverse those directories
+        dir_names[:] = [d for d in dir_names if d.isdigit()]
+
+        # check if there is a match between any of the tsc file names to be deleted and files in the current directory
+        matches = set(files) & file_names
+
+        # if you find a match remove the file from disk
+        for m in matches:
+            print(f"Deleting tsc file {m} from disk")
+            os.remove(os.path.join(root, m))
 
     # free up memory
-    del file_info
+    del file_names
 
     # remove them from the file_index
-    sql_functions.delete_tsc_files(sdk, file_ids)
-    _LOGGER.info("Completed removal of unreferenced tsc files")
+    sdk.sql_handler.delete_tsc_files(file_ids)
+    print("Completed removal of unreferenced tsc files")
