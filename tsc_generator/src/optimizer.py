@@ -159,6 +159,7 @@ def delete_unreferenced_tsc_files(sdk):
 
     # if there are no tsc files to remove just return
     if len(files) == 0:
+        _LOGGER.info("No unreferenced tsc files to remove")
         return
 
     # extract file names from files and make it a set so we can do a set intersection later
