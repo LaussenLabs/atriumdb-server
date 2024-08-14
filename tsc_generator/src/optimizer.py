@@ -152,6 +152,8 @@ def checksum_data(sdk, block_list):
 
 
 def delete_unreferenced_tsc_files(sdk):
+    _LOGGER.info("Starting removal of unreferenced tsc files")
+
     # find tsc files in the file_index that have no references to them in the block_index
     files = sdk.sql_handler.find_unreferenced_tsc_files()
 
