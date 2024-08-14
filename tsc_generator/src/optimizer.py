@@ -34,7 +34,6 @@ def merge_small_tsc_files(device_id, measure_id):
     if num_tsc_fles < 2:
         return 0
 
-    tik = time.perf_counter()
     # we need to make sure that 100_000 blocks is not smaller than the target_tsc_file_size because if it is than
     # the optimizer will never reach the desired file size and will get stuck optimizing the same data over and over
     bytes_total, idx = 0, 0
@@ -53,8 +52,6 @@ def merge_small_tsc_files(device_id, measure_id):
 
     # limit the number of blocks that can be optimized during a single run
     block_list = block_list[:idx]
-
-    _LOGGER.info(f"Limit to 100,000 blocks took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
     tik = time.perf_counter()
     # checksum data to ensure before and after data are the same
