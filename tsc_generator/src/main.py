@@ -112,6 +112,7 @@ def run_tsc_generator():
                 delete_unreferenced_tsc_files(sdk)
 
                 tik = time.perf_counter()
+                _LOGGER.info("Finding device measures with small tsc...")
                 # find the measure device combinations that have undersized tsc files
                 device_measures_small_tsc = sql_functions.find_devices_measures_with_small_tsc_files(sdk, config.svc_tsc_gen['target_tsc_file_size'])
                 _LOGGER.info(f"Finding device measures with small tsc files took {time.perf_counter() - tik} s")
