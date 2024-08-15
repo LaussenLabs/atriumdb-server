@@ -61,9 +61,9 @@ def delete_tsc_files(sdk, file_ids_to_delete: List[tuple]):
     with sdk.sql_handler.connection(begin=False) as (conn, cursor):
 
         # if you put too many rows in the delete statement mariadb will fail. So we split it up
-        for i in range(math.ceil(len(file_ids_to_delete)/50_000)):
+        for i in range(math.ceil(len(file_ids_to_delete)/100_000)):
             # delete old tsc files
-            cursor.executemany("DELETE FROM file_index WHERE id = ?;", file_ids_to_delete[i*50_000:(i+1)*50_000])
+            cursor.executemany("DELETE FROM file_index WHERE id = ?;", file_ids_to_delete[i*100_000:(i+1)*100_000])
 
 
 def undo_changes(sdk, filename_list, original_block_list):

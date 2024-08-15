@@ -152,7 +152,7 @@ def delete_unreferenced_tsc_files(sdk):
     _LOGGER.info("Starting removal of unreferenced tsc files")
 
     # find tsc files in the file_index that have no references to them in the block_index
-    files = sdk.sql_handler.find_unreferenced_tsc_files()
+    files = sql_functions.find_unreferenced_tsc_files(sdk)
 
     # if there are no tsc files to remove just return
     if len(files) == 0:
@@ -181,5 +181,5 @@ def delete_unreferenced_tsc_files(sdk):
     del file_names
 
     # remove them from the file_index
-    sdk.sql_handler.delete_tsc_files(file_ids)
+    sql_functions.delete_tsc_files(sdk, file_ids)
     print("Completed removal of unreferenced tsc files")
