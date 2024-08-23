@@ -9,7 +9,7 @@ from helpers import sql_functions
 
 
 # the max number of blocks to optimize for a run
-# MAX_BLOCKS_PER_RUN = 100_000
+MAX_BLOCKS_PER_RUN = 100_000
 sdk = None
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,24 +34,24 @@ def merge_small_tsc_files(device_id, measure_id):
     if num_tsc_fles < 2:
         return 0
 
-    # # we need to make sure that 100_000 blocks is not smaller than the target_tsc_file_size because if it is than
-    # # the optimizer will never reach the desired file size and will get stuck optimizing the same data over and over
-    # bytes_total, idx = 0, 0
-    # for i, block in enumerate(block_list):
-    #     bytes_total += block[5]
-    #
-    #     # if the sum is greater than the file size than break
-    #     if bytes_total > config.svc_tsc_gen['target_tsc_file_size']:
-    #         idx = i
-    #         break
-    #
-    # # if it took less than 100_000 blocks to fill a file than use the default of 100_000 blocks for the optimization
-    # # if it took more than however many it took will be used to slice the block list
-    # if idx < MAX_BLOCKS_PER_RUN:
-    #     idx = MAX_BLOCKS_PER_RUN
-    #
-    # # limit the number of blocks that can be optimized during a single run
-    # block_list = block_list[:idx]
+    # we need to make sure that 100_000 blocks is not smaller than the target_tsc_file_size because if it is than
+    # the optimizer will never reach the desired file size and will get stuck optimizing the same data over and over
+    bytes_total, idx = 0, 0
+    for i, block in enumerate(block_list):
+        bytes_total += block[5]
+
+        # if the sum is greater than the file size than break
+        if bytes_total > config.svc_tsc_gen['target_tsc_file_size']:
+            idx = i
+            break
+
+    # if it took less than 100_000 blocks to fill a file than use the default of 100_000 blocks for the optimization
+    # if it took more than however many it took will be used to slice the block list
+    if idx < MAX_BLOCKS_PER_RUN:
+        idx = MAX_BLOCKS_PER_RUN
+
+    # limit the number of blocks that can be optimized during a single run
+    block_list = block_list[:idx]
 
     tik = time.perf_counter()
     # checksum data to ensure before and after data are the same
