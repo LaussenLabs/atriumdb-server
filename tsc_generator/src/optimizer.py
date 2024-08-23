@@ -29,11 +29,6 @@ def merge_small_tsc_files(device_id, measure_id):
                                                     target_tsc_file_size=config.svc_tsc_gen['target_tsc_file_size'])
     _LOGGER.info(f"Finding small tsc files took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
-    # if there is only one tsc file then don't optimize since there is only one partly full tsc file
-    num_tsc_fles = len(set([block[3] for block in block_list]))
-    if num_tsc_fles < 2:
-        return 0
-
     # we need to make sure that 100_000 blocks is not smaller than the target_tsc_file_size because if it is than
     # the optimizer will never reach the desired file size and will get stuck optimizing the same data over and over
     bytes_total, idx = 0, 0
@@ -52,6 +47,11 @@ def merge_small_tsc_files(device_id, measure_id):
 
     # limit the number of blocks that can be optimized during a single run
     block_list = block_list[:idx]
+
+    # if there is only one tsc file then don't optimize since there is only one partly full tsc file
+    num_tsc_fles = len(set([block[3] for block in block_list]))
+    if num_tsc_fles < 2:
+        return 0
 
     tik = time.perf_counter()
     # checksum data to ensure before and after data are the same
