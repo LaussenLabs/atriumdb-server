@@ -59,7 +59,7 @@ def merge_small_tsc_files(device_id, measure_id):
 
     _LOGGER.debug(f"Check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
-    _LOGGER.info(f"Merging {num_tsc_fles} tsc files for device_id={device_id}, measure_id={measure_id}")
+    _LOGGER.debug(f"Merging {num_tsc_fles} tsc files for device_id={device_id}, measure_id={measure_id}")
 
     # figure out the parameters needed to merge smaller tsc files into bigger ones
     start_byte_array, block_batch_slices = make_optimal_tsc_files(block_list)
@@ -103,7 +103,7 @@ def merge_small_tsc_files(device_id, measure_id):
         _LOGGER.error(f"Error occurred while adding new data to the database for device_id={device_id}, measure_id={measure_id}, restoring old blocks and deleting new ones", exc_info=True, stack_info=True)
         sql_functions.undo_changes(sdk, filenames, original_block_list=block_list)
 
-    _LOGGER.info(f"Finished merging tsc files for device_id={device_id}, measure_id={measure_id}")
+    _LOGGER.debug(f"Finished merging tsc files for device_id={device_id}, measure_id={measure_id}")
 
 
 def make_optimal_tsc_files(block_list):
