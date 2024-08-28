@@ -27,7 +27,7 @@ def merge_small_tsc_files(device_id, measure_id):
     # get blocks from tsc files that are not big enough
     block_list = sql_functions.find_small_tsc_files(sdk=sdk, device_id=device_id, measure_id=measure_id,
                                                     target_tsc_file_size=config.svc_tsc_gen['target_tsc_file_size'])
-    _LOGGER.info(f"Finding small tsc files took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
+    _LOGGER.debug(f"Finding small tsc files took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
     # we need to make sure that 100_000 blocks is not smaller than the target_tsc_file_size because if it is than
     # the optimizer will never reach the desired file size and will get stuck optimizing the same data over and over
@@ -57,7 +57,7 @@ def merge_small_tsc_files(device_id, measure_id):
     # checksum data to ensure before and after data are the same
     checksum_before = checksum_data(sdk, block_list)
 
-    _LOGGER.info(f"Check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
+    _LOGGER.debug(f"Check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
     _LOGGER.info(f"Merging {num_tsc_fles} tsc files for device_id={device_id}, measure_id={measure_id}")
 
@@ -83,7 +83,7 @@ def merge_small_tsc_files(device_id, measure_id):
         # insert the new filenames and their associated blocks. Then delete the old blocks in one transaction
         sql_functions.update_block_tsc_data(sdk, filenames, block_list, block_batch_slices, start_byte_array)
 
-        _LOGGER.info(f"Merging tsc files took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
+        _LOGGER.debug(f"Merging tsc files took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
 
         tik = time.perf_counter()
         # get the new blocks by using the tsc filenames
@@ -91,7 +91,7 @@ def merge_small_tsc_files(device_id, measure_id):
         # checksum the new blocks
         checksum_after = checksum_data(sdk, new_blocks)
 
-        _LOGGER.info(f"Second check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
+        _LOGGER.debug(f"Second check summing took {time.perf_counter() - tik} s, for device_id={device_id}, measure_id={measure_id}")
         # make sure checksums match
         assert checksum_after == checksum_before
 
@@ -173,7 +173,7 @@ def delete_unreferenced_tsc_files(sdk):
 
         # if you find a match remove the file from disk
         for m in matches:
-            _LOGGER.info(f"Deleting tsc file {m} from disk")
+            _LOGGER.debug(f"Deleting tsc file {m} from disk")
             os.remove(os.path.join(root, m))
 
     # free up memory
