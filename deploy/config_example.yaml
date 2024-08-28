@@ -17,7 +17,7 @@ svc_tsc_gen:
   wait_recheck_time: 10
   # this is just a suggestion if your getting lots of timeout errors raise this value. It's just here to make sure
   # processes don't get stuck and deadlock the tsc generator
-  wal_file_timeout: 30
+  wal_file_timeout: 60
   # this does the same thing as the above variable except for merging tsc files. This can take longer than wal files so set a reasonable value.
   tsc_file_optimization_timeout: 900
   # this is the number of values to put in a block. Higher values mean reads of more values will be more efficient.

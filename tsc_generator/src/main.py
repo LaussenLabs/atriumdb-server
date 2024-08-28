@@ -143,7 +143,8 @@ def run_tsc_generator():
                 _LOGGER.info("SDK successfully closed connections")
 
             # an hour before the optimizer is set to run reset the opt_ran_today variable so it will run again
-            elif opt_ran_today and dt.datetime.now().hour == config.svc_tsc_gen['tsc_optimizer_run_time'] - 1:
+            if opt_ran_today and (dt.datetime.now().hour == config.svc_tsc_gen['tsc_optimizer_run_time'] - 1 or
+                                  (config.svc_tsc_gen['tsc_optimizer_run_time'] == 0 and dt.datetime.now().hour == 23)):
                 opt_ran_today = False
 
 
