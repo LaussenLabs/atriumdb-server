@@ -29,23 +29,6 @@ def find_small_tsc_files(sdk, device_id, measure_id, target_tsc_file_size):
         return cursor.fetchall()
 
 
-# this one is for when you update blocks
-# def update_block_tsc_data(sdk, file_names: List[str], blocks_old: List[Dict], block_batch_slices, start_byte_array):
-#     with sdk.sql_handler.connection(begin=True) as (conn, cursor):
-#         for i, file_name in enumerate(file_names):
-#             # insert file_path into file_index and get id
-#             cursor.execute("INSERT INTO file_index (path) VALUES (?);", (file_name,))
-#             file_id = cursor.lastrowid
-#
-#             blocks = blocks_old[block_batch_slices[i][0]:block_batch_slices[i][1]]
-#             start_bytes = start_byte_array[block_batch_slices[i][0]:block_batch_slices[i][1]]
-#
-#             # update block_index
-#             update_tuples = [(file_id, start_byte, block[0]) for start_byte, block in zip(start_bytes, blocks)]
-#
-#             cursor.executemany("UPDATE block_index SET file_id = ?, start_byte = ? WHERE id = ?;", update_tuples)
-
-
 # this one is for when you delete blocks then insert new ones
 def update_block_tsc_data(sdk, file_names: List[str], blocks_old: List[Dict], block_batch_slices, start_byte_array):
     with sdk.sql_handler.connection(begin=True) as (conn, cursor):
@@ -85,26 +68,6 @@ def delete_tsc_files(sdk, file_ids_to_delete: List[tuple]):
         for i in range(math.ceil(len(file_ids_to_delete)/100_000)):
             # delete old tsc files
             cursor.executemany("DELETE FROM file_index WHERE id = ?;", file_ids_to_delete[i*100_000:(i+1)*100_000])
-
-
-# this one is for when you update blocks
-# def undo_changes(sdk, filename_list, original_block_list):
-#     # not doing it in a transaction because if it doesn't get a chance to reinsert all of them, i want as many as
-#     # possible. Its also faster so less chance of it being interrupted
-#     with sdk.sql_handler.connection(begin=False) as (conn, cursor):
-#         # update block_index
-#         update_tuples = [(block[3], block[4], block[0]) for block in original_block_list]
-#
-#         cursor.executemany("UPDATE block_index SET file_id = ?, start_byte = ? WHERE id = ?;", update_tuples)
-#
-#         # delete the tsc files from disk
-#         for file in filename_list:
-#             os.remove(sdk.file_api.to_abs_path(filename=file, measure_id=original_block_list[0][1], device_id=original_block_list[0][2]))
-#
-#         filename_tuples = [(row,) for row in filename_list]
-#
-#         # remove tsc files from the file index
-#         cursor.executemany("DELETE FROM file_index WHERE path = ?", filename_tuples)
 
 
 # this one is for when you delete blocks then insert new ones
