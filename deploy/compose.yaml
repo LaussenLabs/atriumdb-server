@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   tsc:
-    image: atriumdb/atriumdb-server:1.1.0
+    image: atriumdb/atriumdb-server:1.2.0
     command: ./atriumdb-server --tsc-gen
     volumes:
       - atriumdb-meta:/data/meta
@@ -37,7 +37,7 @@ services:
           cpus: "2"
           memory: 4G
   wal:
-    image: atriumdb/atriumdb-server:1.1.0
+    image: atriumdb/atriumdb-server:1.2.0
     command: ./atriumdb-server --wal-writer
     configs:
       - source: config.yaml
@@ -73,7 +73,7 @@ services:
           cpus: "1"
           memory: 0.5G
   api:
-    image: atriumdb/atriumdb-server:1.1.0
+    image: atriumdb/atriumdb-server:1.2.0
     command: ./atriumdb-server --rest-api --uvicorn-num-workers 8
     env_file:
      - api.env

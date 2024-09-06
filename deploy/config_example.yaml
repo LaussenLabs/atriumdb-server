@@ -27,8 +27,7 @@ svc_tsc_gen:
   tsc_optimizer_run_time: 3
   # this is how big you want your tsc files to be in bytes, bigger files means less files to open when reading which improves speed
   target_tsc_file_size: 100000000
-  # This is the number of blocks to hash at one time, the bigger this is the faster the tsc file optimizer will run,
-  # but you will use more RAM memory
+  # This is the number of blocks to hash at one time, the bigger this is the faster the tsc file optimizer will run, but you will use more RAM memory
   num_blocks_checksum: 20000
   # If you want it to create a new dataset on startup (good for dev)
   create_dataset: False

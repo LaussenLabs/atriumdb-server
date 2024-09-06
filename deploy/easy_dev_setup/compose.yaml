@@ -1,7 +1,7 @@
 
 services:
   tsc-generator:
-    image: atriumdb/atriumdb-server:1.1.0
+    image: atriumdb/atriumdb-server:1.2.0
     command: ./atriumdb-server --tsc-gen
 #    restart: always
     # set internal path you want tsc and wal files to sit at. Also mount code directory so its easy to change without
@@ -17,7 +17,7 @@ services:
         condition: service_healthy
 
   wal-writer:
-    image: atriumdb/atriumdb-server:1.1.0
+    image: atriumdb/atriumdb-server:1.2.0
     command: ./atriumdb-server --wal-writer
     # Set internal path where you want wal files stored format is host/path:container/path
     volumes:
@@ -35,7 +35,7 @@ services:
         condition: service_healthy
 
   atriumdb-api:
-    image: atriumdb/atriumdb-server:1.1.0
+    image: atriumdb/atriumdb-server:1.2.0
     command: ./atriumdb-server --rest-api --uvicorn-num-workers 1
     env_file:
       - ../example_api.env
