@@ -93,7 +93,7 @@ def run_tsc_generator():
                         EXIT_EVENT.set()
 
                 except TimeoutError:
-                    _LOGGER.error("Timeout occurred while working on WAL file {}".format(str(wal_path)), stack_info=True, exc_info=True)
+                    _LOGGER.error("Timeout occurred while working on WAL file. If the keeps happening consider making the wal_file_timeout variable larger.", stack_info=True, exc_info=True)
                     counter_dict[-2].add(1)
                     EXIT_EVENT.set()
 
@@ -108,19 +108,17 @@ def run_tsc_generator():
                                 metadata_connection_type=config.svc_tsc_gen['metadb_connection']['type'],
                                 connection_params=config.CONNECTION_PARAMS)
 
-                # remove unreferenced tsc files so they don't get picked up by the tsc file size optimization
-                delete_unreferenced_tsc_files(sdk)
-
                 tik = time.perf_counter()
+                _LOGGER.info("Starting TSC file optimization. Finding device measures with small tsc...")
                 # find the measure device combinations that have undersized tsc files
                 device_measures_small_tsc = sql_functions.find_devices_measures_with_small_tsc_files(sdk, config.svc_tsc_gen['target_tsc_file_size'])
-                _LOGGER.info(f"Finding device measures with small tsc files took {time.perf_counter() - tik} s")
+                _LOGGER.debug(f"Finding device measures with small tsc files took {time.perf_counter() - tik} s")
 
                 if len(device_measures_small_tsc) != 0:
                     _LOGGER.info("Starting tsc file size optimization")
                     start_bench = time.perf_counter()
 
-                    for device_id, measure_id in device_measures_small_tsc:
+                    for measure_id, device_id in device_measures_small_tsc:
                         future = executor.submit(merge_small_tsc_files, device_id, measure_id)
                         futures.append(future)
 
@@ -129,20 +127,24 @@ def run_tsc_generator():
                         try:
                             future.result(timeout=config.svc_tsc_gen['tsc_file_optimization_timeout'])
                         except TimeoutError:
-                            _LOGGER.error(f"Timeout occurred while optimizing tsc files for device_id={device_id} and measure_id={measure_id}", stack_info=True, exc_info=True)
+                            _LOGGER.error(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.", stack_info=True, exc_info=True)
                             EXIT_EVENT.set()
 
                     _LOGGER.info("Completed tsc file size optimization")
                     _LOGGER.info(f"Total time to rollup tsc files took {str(dt.timedelta(seconds=int(time.perf_counter() - start_bench)))} hh:mm:ss")
                 else:
                     _LOGGER.info("All tsc file sizes are optimal. Skipping optimization for today")
+
                 # delete all the old tsc files that were put into new bigger files
                 delete_unreferenced_tsc_files(sdk)
 
-                opt_ran_today, sdk = True, None
+                opt_ran_today = True
+                sdk.close()
+                _LOGGER.info("SDK successfully closed connections")
 
             # an hour before the optimizer is set to run reset the opt_ran_today variable so it will run again
-            elif opt_ran_today and dt.datetime.now().hour == config.svc_tsc_gen['tsc_optimizer_run_time'] - 1:
+            if opt_ran_today and (dt.datetime.now().hour == config.svc_tsc_gen['tsc_optimizer_run_time'] - 1 or
+                                  (config.svc_tsc_gen['tsc_optimizer_run_time'] == 0 and dt.datetime.now().hour == 23)):
                 opt_ran_today = False
 
 

@@ -9,27 +9,30 @@ svc_tsc_gen:
   # num_compression_threads is how many C compression threads you want to give to each sdk worker. num_workers * num_compression threads
   # should not be more than how many cores you have allocated to docker. Be careful about how many workers you spawn because
   # each one creates a mariadb connection and too many can overwhelm mariadb.
-  max_workers: 4
+  max_workers: 2
   num_compression_threads: 2
+  # how long to accumulate data in the WAL files before saving it to atriumdb default is 2700s
   default_wait_close_time: 2700
+  # when nothing is being written we don't want to keep the loop using cpu time so wait 10s before rechecking if there are wal files to be consumed
   wait_recheck_time: 10
   # this is just a suggestion if your getting lots of timeout errors raise this value. It's just here to make sure
   # processes don't get stuck and deadlock the tsc generator
-  wal_file_timeout: 30
-  # this does the same thing as the above variable except for merging tsc files. This can take longer than wal files so set a reasonable value
-  tsc_file_optimization_timeout: 120
+  wal_file_timeout: 120
+  # this does the same thing as the above variable except for merging tsc files. This can take longer than wal files so set a reasonable value.
+  tsc_file_optimization_timeout: 900
+  # this is the number of values to put in a block. Higher values mean reads of more values will be more efficient.
+  # Lower values mean smaller reads will be more efficient. The default of 131072 is a good balance of both.
   optimal_block_num_values: 131072
   # the hour of the day (0h-24h) you want the tsc file optimizer to run, if you don't want it to run set this value to -1
-  tsc_optimizer_run_time: 5
+  tsc_optimizer_run_time: 3
   # this is how big you want your tsc files to be in bytes, bigger files means less files to open when reading which improves speed
   target_tsc_file_size: 100000000
-  # This is the number of blocks to hash at one time, the bigger this is the faster the tsc file optimizer will run
-  # but you will use more RAM memory
-  num_blocks_checksum: 800
+  # This is the number of blocks to hash at one time, the bigger this is the faster the tsc file optimizer will run, but you will use more RAM memory
+  num_blocks_checksum: 20000
   # If you want it to create a new dataset on startup (good for dev)
-  create_dataset: True
+  create_dataset: False
   interval_index_mode: "merge"
-  gap_tolerance: 5000000000
+  gap_tolerance: 10000000000
   metadb_connection: metadb
 
 #### BACKEND DATABASE ####

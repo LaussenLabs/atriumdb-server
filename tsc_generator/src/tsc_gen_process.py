@@ -32,7 +32,7 @@ def tsc_generator_process(wal_path, device_measure):
 
     if response == 0:
         wal_path.unlink()
-        _LOGGER.info(f"Successfully saved data to AtriumDB, deleting WAL file: {str(wal_path)}")
+        _LOGGER.debug(f"Successfully saved data to AtriumDB, deleting WAL file: {str(wal_path)}")
 
     # If duplicate data was detected delete the wall file
     elif response == 1:
