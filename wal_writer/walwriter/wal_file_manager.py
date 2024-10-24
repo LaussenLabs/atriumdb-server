@@ -90,11 +90,11 @@ class WALFileManager:
                     values = ((values - meta_data["scale_b"]) / meta_data["scale_m"])
 
                 # type cast to integers (if values wern't scaled that means they were already ints)
-                values = np.rint(values).astype(np.dtype("<i2"))
+                values = np.rint(values).astype(np.dtype("<i8"))
 
                 # this is the type we are going to write to the wal files
                 # type is now INT because we converted to it using scale factors or they were just ints to start with
-                header["input_value_type"] = ValueType.INT16.value
+                header["input_value_type"] = ValueType.INT64.value
 
             # here no scaling is applied and floats are written to disk
             else:
