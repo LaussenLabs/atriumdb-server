@@ -25,7 +25,7 @@ def find_small_tsc_files(sdk, device_id, measure_id, target_tsc_file_size):
         cursor.execute("SELECT id, measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values"
                        " FROM block_index WHERE measure_id = ? AND device_id = ? AND file_id IN "
                        "(SELECT file_id FROM block_index WHERE measure_id = ? AND device_id = ? GROUP BY file_id HAVING SUM(num_bytes) < ?) "
-                       "ORDER BY start_time_n ASC, end_time_n ASC", (measure_id, device_id, measure_id, device_id, target_tsc_file_size))
+                       "ORDER BY start_time_n ASC, end_time_n ASC, id ASC", (measure_id, device_id, measure_id, device_id, target_tsc_file_size))
         return cursor.fetchall()
 
 
@@ -56,7 +56,7 @@ def select_blocks_by_file(sdk, file_names: List[str]):
         file_ids = cursor.fetchall()
 
         cursor.execute("SELECT id, measure_id, device_id, file_id, start_byte, num_bytes, start_time_n, end_time_n, num_values"
-                       " FROM block_index WHERE file_id IN ({}) ORDER BY start_time_n ASC, end_time_n ASC".format(','.join(['?'] * len(file_ids))), tuple([id[0] for id in file_ids]))
+                       " FROM block_index WHERE file_id IN ({}) ORDER BY start_time_n ASC, end_time_n ASC, id ASC".format(','.join(['?'] * len(file_ids))), tuple([id[0] for id in file_ids]))
 
         return cursor.fetchall()
 
