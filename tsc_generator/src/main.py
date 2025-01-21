@@ -93,7 +93,11 @@ def run_tsc_generator():
                         EXIT_EVENT.set()
 
                 except TimeoutError:
-                    _LOGGER.error("Timeout occurred while working on WAL file. If the keeps happening consider making the wal_file_timeout variable larger.", stack_info=True, exc_info=True)
+                    if config.loglevel.upper() == "DEBUG":
+                        _LOGGER.error("Timeout occurred while working on WAL file. If the keeps happening consider making the wal_file_timeout variable larger.", stack_info=True, exc_info=True)
+                    else:
+                        _LOGGER.error("Timeout occurred while working on WAL file. If the keeps happening consider making the wal_file_timeout variable larger.")
+
                     counter_dict[-2].add(1)
                     EXIT_EVENT.set()
 
