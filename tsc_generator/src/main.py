@@ -131,7 +131,11 @@ def run_tsc_generator():
                         try:
                             future.result(timeout=config.svc_tsc_gen['tsc_file_optimization_timeout'])
                         except TimeoutError:
-                            _LOGGER.error(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.", stack_info=True, exc_info=True)
+                            if config.loglevel.upper() == "DEBUG":
+                                _LOGGER.error(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.", stack_info=True, exc_info=True)
+                            else:
+                                _LOGGER.error(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.")
+
                             EXIT_EVENT.set()
 
                     _LOGGER.info("Completed tsc file size optimization")
