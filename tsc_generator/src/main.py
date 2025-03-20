@@ -92,12 +92,9 @@ def run_tsc_generator():
                     if response_code == -2:
                         EXIT_EVENT.set()
 
-                except TimeoutError:
-                    if config.loglevel.upper() == "DEBUG":
-                        _LOGGER.error("Timeout occurred while working on WAL file. If the keeps happening consider making the wal_file_timeout variable larger.", stack_info=True, exc_info=True)
-                    else:
-                        _LOGGER.error("Timeout occurred while working on WAL file. If the keeps happening consider making the wal_file_timeout variable larger.")
-
+                except TimeoutError as e:
+                    _LOGGER.warning("Timeout occurred while working on WAL file. If the keeps happening, consider making the wal_file_timeout variable larger.")
+                    _LOGGER.debug(e)
                     counter_dict[-2].add(1)
                     EXIT_EVENT.set()
 
@@ -130,12 +127,10 @@ def run_tsc_generator():
                     for future in futures:
                         try:
                             future.result(timeout=config.svc_tsc_gen['tsc_file_optimization_timeout'])
-                        except TimeoutError:
-                            if config.loglevel.upper() == "DEBUG":
-                                _LOGGER.error(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.", stack_info=True, exc_info=True)
-                            else:
-                                _LOGGER.error(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.")
-
+                        except TimeoutError as e:
+                            _LOGGER.warning(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.")
+                            _LOGGER.debug(e)
+                            counter_dict[-2].add(1)
                             EXIT_EVENT.set()
 
                     _LOGGER.info("Completed tsc file size optimization")
