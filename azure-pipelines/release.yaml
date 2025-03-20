@@ -3,7 +3,7 @@ name: atriumdb_server_release_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.rr)
 trigger: none
 
 pool:
-  vmImage: ubuntu-20.04
+  vmImage: ubuntu-latest
 
 parameters:
   - name: releaseVersion
