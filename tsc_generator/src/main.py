@@ -15,6 +15,8 @@ from logging import getLogger, Formatter, StreamHandler
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from helpers.metrics import (get_metric,
                              TSCGENERATOR_ERRORS,
+                             TSCGENERATOR_OPT_TIMEOUT_ERRORS,
+                             TSCGENERATOR_WAL_TIMEOUT_ERRORS,
                              TSCGENERATOR_CORRUPTED_WAL_FILE,
                              TSCGENERATOR_PROCESSED_WAL_FILE,
                              TSCGENERATOR_WAL_FILE_EMPTY,
@@ -41,7 +43,9 @@ def run_tsc_generator():
                                  connection_params=config.CONNECTION_PARAMS, overwrite='ignore')
 
     # Set up open telemetry metrics
-    counter_dict = {-2: get_metric(TSCGENERATOR_ERRORS),
+    counter_dict = {-4: get_metric(TSCGENERATOR_WAL_TIMEOUT_ERRORS),
+                    -3: get_metric(TSCGENERATOR_OPT_TIMEOUT_ERRORS),
+                    -2: get_metric(TSCGENERATOR_ERRORS),
                     -1: get_metric(TSCGENERATOR_CORRUPTED_WAL_FILE),
                     0: get_metric(TSCGENERATOR_PROCESSED_WAL_FILE),
                     1: get_metric(TSCGENERATOR_DUPLICATE_WAL_FILE),
@@ -92,9 +96,10 @@ def run_tsc_generator():
                     if response_code == -2:
                         EXIT_EVENT.set()
 
-                except TimeoutError:
-                    _LOGGER.error("Timeout occurred while working on WAL file. If the keeps happening consider making the wal_file_timeout variable larger.", stack_info=True, exc_info=True)
-                    counter_dict[-2].add(1)
+                except TimeoutError as e:
+                    _LOGGER.warning("Timeout occurred while working on WAL file. If the keeps happening, consider making the wal_file_timeout variable larger.")
+                    _LOGGER.debug(e)
+                    counter_dict[-4].add(1)
                     EXIT_EVENT.set()
 
             # If there are no wal files that need to be ingested wait before rechecking
@@ -126,8 +131,10 @@ def run_tsc_generator():
                     for future in futures:
                         try:
                             future.result(timeout=config.svc_tsc_gen['tsc_file_optimization_timeout'])
-                        except TimeoutError:
-                            _LOGGER.error(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.", stack_info=True, exc_info=True)
+                        except TimeoutError as e:
+                            _LOGGER.warning(f"Timeout occurred while optimizing tsc files. If the keeps happening consider making the tsc_file_optimization_timeout variable larger.")
+                            _LOGGER.debug(e)
+                            counter_dict[-3].add(1)
                             EXIT_EVENT.set()
 
                     _LOGGER.info("Completed tsc file size optimization")

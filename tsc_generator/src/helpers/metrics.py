@@ -51,6 +51,8 @@ def _detect_resource_attribute() -> "dict":
 # Define all metrics names
 METRIC = "atriumdb.tscgenerator."
 TSCGENERATOR_ERRORS = METRIC + "errors"
+TSCGENERATOR_OPT_TIMEOUT_ERRORS = METRIC + "optimization.timeout.errors"
+TSCGENERATOR_WAL_TIMEOUT_ERRORS = METRIC + "wal.timeout.errors"
 TSCGENERATOR_PROCESSED_WAL_FILE = METRIC + "wal.files.processed"
 TSCGENERATOR_CORRUPTED_WAL_FILE = METRIC + "wal.files.corrupted"
 TSCGENERATOR_WAL_FILE_EMPTY = METRIC + "empty.wal.files"
@@ -94,6 +96,14 @@ def _init_metrics(meter: Meter):
             TSCGENERATOR_ERRORS,
             description="number of non critical errors"
         )
+        optimization_timeout_counter = meter.create_counter(
+            TSCGENERATOR_OPT_TIMEOUT_ERRORS,
+            description="number of timeout errors when optimizing tsc files"
+        )
+        wal_timeout_counter = meter.create_counter(
+            TSCGENERATOR_WAL_TIMEOUT_ERRORS,
+            description="number of wal file timeout errors"
+        )
         processed_wal_file_counter = meter.create_counter(
             TSCGENERATOR_PROCESSED_WAL_FILE,
             description="number of processed wal files",
@@ -121,6 +131,8 @@ def _init_metrics(meter: Meter):
 
         adapter_metrics = {
             TSCGENERATOR_ERRORS: exception_counter,
+            TSCGENERATOR_OPT_TIMEOUT_ERRORS: optimization_timeout_counter,
+            TSCGENERATOR_WAL_TIMEOUT_ERRORS: wal_timeout_counter,
             TSCGENERATOR_PROCESSED_WAL_FILE: processed_wal_file_counter,
             TSCGENERATOR_CORRUPTED_WAL_FILE: corrupted_wal_file_counter,
             TSCGENERATOR_WAL_FILE_EMPTY: empty_wal_file_counter,
