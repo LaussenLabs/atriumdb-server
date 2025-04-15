@@ -9,6 +9,9 @@ def get_file_iter(path_directory, wait_close_time_s=None):
     path_iter = Path(path_directory).glob("*.wal")
     current_time = time.time()
 
-    for path in path_iter:
+    # sort paths by oldest modified to newest to make data ingestion happen in order
+    sorted_paths = sorted(path_iter, key=lambda p: p.stat().st_mtime)
+
+    for path in sorted_paths:
         if (current_time - path.stat().st_mtime) > wait_close_time_s:
             yield path
