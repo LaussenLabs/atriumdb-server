@@ -10,7 +10,7 @@ printf "${BLUE}   _  _       _            ___  ___ ${NC}\n"
 printf "${BLUE}  /_\| |_ _ _(_)_  _ _ __ |   \| _ )${NC}\n"
 printf "${BLUE} / _ \  _| '_| | || | '  \| |) | _ \\ ${NC}\n"
 printf "${BLUE}/_/ \_\__|_| |_|\_,_|_|_|_|___/|___/${NC}\n\n"
-printf "Server Version: ${GREEN}1.2.1${NC}\n"
+printf "Server Version: ${GREEN}1.2.2${NC}\n"
 POSITIONAL_ARGS=()
 
 #set defaults
