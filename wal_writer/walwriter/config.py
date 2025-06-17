@@ -22,6 +22,7 @@
 #
 import yaml
 from pathlib import Path
+import os
 import ast
 
 
@@ -29,7 +30,7 @@ class Config:
     def __init__(self):
         # load config and secrets files into the config object's attributes
         self.load_config("config.yaml")
-        self.load_config("secrets.yaml")
+        self.load_config("secrets.yaml", fallback_to_env=True)
 
         # validate that the connection named in config file exists and that it has at least one of its required fields.
         # If you just check for name it could have been named properly in the secrets file but not in the config
@@ -58,20 +59,53 @@ class Config:
         if self.svc_wal_writer['enable_siri']:
             self.siridb['hosts'] = [ast.literal_eval(conn) for conn in self.siridb['hosts']]
 
-    def load_config(self, file_name):
-        stream = open(f"/{file_name}", 'r')
-        data = yaml.load(stream, Loader=yaml.FullLoader)
-        config_keys = data.keys()
-        # keys (k) will be the non-indented headers such as metadb, svc_tsc_gen ect
-        for k in config_keys:
-            # check if an attribute with that name has already been loaded
-            if hasattr(self, k):
-                # if it has, append the new values to the dictionary
-                for subkey, value in data.get(k).items():
-                    getattr(self, k)[subkey] = value
-            else:
-                # if it hasn't then add the attribute and the sub headers as a dictionary
-                setattr(self, k, data.get(k))
+    def load_config(self, file_name, fallback_to_env=False):
+        path = Path(f"/" + file_name)
+        yaml_data = {}
+
+        # load yaml if provided
+        if path.exists():
+            with path.open("r") as stream:
+                yaml_data = yaml.load(stream, Loader=yaml.FullLoader) or {}
+
+            config_keys = yaml_data.keys()
+            # keys (k) will be the non-indented headers such as metadb, svc_tsc_gen ect
+            for k in config_keys:
+                # check if an attribute with that name has already been loaded
+                if hasattr(self, k):
+                    # if it has, append the new values to the dictionary
+                    for subkey, value in yaml_data.get(k).items():
+                        getattr(self, k)[subkey] = value
+                else:
+                    # if it hasn't then add the attribute and the sub headers as a dictionary
+                    setattr(self, k, yaml_data.get(k))
+
+        # if no yaml provided, try environment variables if requested
+        elif fallback_to_env:
+            # iterate through environment variables prefixing *_USER or *_PASSWORD
+            prefixes = {}
+
+            for env_key in os.environ.keys():
+                if env_key.endswith("_USER") or env_key.endswith("_PASSWORD"):
+                    prefix = env_key.rsplit("_", 1)[0].lower()
+
+                    if prefix not in prefixes:
+                        prefixes[prefix] = {}
+
+                    # map USER -> username, PASSWORD -> password
+                    if env_key.endswith("_USER"):
+                        prefixes[prefix]['username'] = os.environ[env_key]
+                    elif env_key.endswith("_PASSWORD"):
+                        prefixes[prefix]['password'] = os.environ[env_key]
+
+            # set attributes
+            for prefix, creds in prefixes.items():
+                # if the attribute already exists and is a dict, update it
+                if hasattr(self, prefix) and isinstance(getattr(self, prefix), dict):
+                    getattr(self, prefix).update(creds)
+                else:
+                    setattr(self, prefix, creds)
+
 
 
 config = Config()
