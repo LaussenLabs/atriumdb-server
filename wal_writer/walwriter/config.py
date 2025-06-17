@@ -98,15 +98,15 @@ class Config:
                 user_key = f"{env_prefix}_USER"
                 pass_key = f"{env_prefix}_PASSWORD"
 
-                updated = False
+                loaded = []
                 if user_key in env_vars:
                     section["username"] = env_vars[user_key]
-                    updated = True
+                    loaded.append("username")
                 if pass_key in env_vars:
                     section["password"] = env_vars[pass_key]
-                    updated = True
+                    loaded.append("password")
 
-                if updated:
+                if loaded:
                     setattr(self, section_name, section)
                     print(f"[INFO] Loaded {', '.join(loaded)} from env into '{section_name}'")
 
