@@ -83,29 +83,30 @@ class Config:
         # if no yaml provided, try environment variables if requested
         elif fallback_to_env:
             # iterate through environment variables prefixing *_USER or *_PASSWORD
-            prefixes = {}
+            env_vars = os.environ
+            for section_name in vars(self):
+                section = getattr(self, section_name)
+                if not isinstance(section, dict):
+                    continue
 
-            for env_key in os.environ.keys():
-                if env_key.endswith("_USER") or env_key.endswith("_PASSWORD"):
-                    prefix = env_key.rsplit("_", 1)[0].lower()
+                # use 'type' as env prefix if available, otherwise fallback to section name
+                # e.g. for MARIADB_USER this will be saved under METADB_USER if the metadb type
+                # in config is set to mariadb, else it will be saved under MARIADB_USER
+                env_prefix = section.get("type", section_name).upper()
 
-                    if prefix not in prefixes:
-                        prefixes[prefix] = {}
+                user_key = f"{env_prefix}_USER"
+                pass_key = f"{env_prefix}_PASSWORD"
 
-                    # map USER -> username, PASSWORD -> password
-                    if env_key.endswith("_USER"):
-                        prefixes[prefix]['username'] = os.environ[env_key]
-                    elif env_key.endswith("_PASSWORD"):
-                        prefixes[prefix]['password'] = os.environ[env_key]
+                updated = False
+                if user_key in env_vars:
+                    section["username"] = env_vars[user_key]
+                    updated = True
+                if pass_key in env_vars:
+                    section["password"] = env_vars[pass_key]
+                    updated = True
 
-            # set attributes
-            for prefix, creds in prefixes.items():
-                # if the attribute already exists and is a dict, update it
-                if hasattr(self, prefix) and isinstance(getattr(self, prefix), dict):
-                    getattr(self, prefix).update(creds)
-                else:
-                    setattr(self, prefix, creds)
-
+                if updated:
+                    setattr(self, section_name, section)
 
 
 config = Config()
