@@ -82,6 +82,7 @@ class Config:
 
         # if no yaml provided, try environment variables if requested
         elif fallback_to_env:
+            print(f"[INFO] {file_name} not found. Falling back to environment variables.")
             # iterate through environment variables prefixing *_USER or *_PASSWORD
             env_vars = os.environ
             for section_name in vars(self):
@@ -107,6 +108,7 @@ class Config:
 
                 if updated:
                     setattr(self, section_name, section)
+                    print(f"[INFO] Loaded {', '.join(loaded)} from env into '{section_name}'")
 
 
 config = Config()
