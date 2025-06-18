@@ -25,7 +25,6 @@ from pathlib import Path
 import os
 import ast
 
-
 class Config:
     def __init__(self):
         # load config and secrets files into the config object's attributes
@@ -82,7 +81,7 @@ class Config:
 
         # if no yaml provided, try environment variables if requested
         elif fallback_to_env:
-            print(f"[INFO] {file_name} not found. Falling back to environment variables.")
+            print(f"[config] {file_name} not found. Falling back to environment variables.", flush=True)
             # iterate through environment variables prefixing *_USER or *_PASSWORD
             env_vars = os.environ
             for section_name in vars(self):
@@ -108,7 +107,7 @@ class Config:
 
                 if loaded:
                     setattr(self, section_name, section)
-                    print(f"[INFO] Loaded {', '.join(loaded)} from env into '{section_name}'")
+                    print(f"[config] Loaded {', '.join(loaded)} from env into '{section_name}'", flush=True)
 
 
 config = Config()
