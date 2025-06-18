@@ -45,11 +45,11 @@ class Config:
             # get metadata database connection
             wal_writer_cfg['metadb_connection'] = getattr(self, wal_writer_cfg['metadb_connection'])
             if 'username' not in wal_writer_cfg['metadb_connection'] or 'password' not in wal_writer_cfg['metadb_connection']:
-                raise ValueError(f"Username or password not found for metadb_connection name specified in config. "
+                raise ConfigurationError(f"Username or password not found for metadb_connection name specified in config. "
                                  f"Please specify a username and password in secrets.yaml file under the same name as in the config."
                                  f" See secrets_example.yaml for an example.")
         else:
-            raise ValueError(f"Metadata connection name '{wal_writer_cfg['metadb_connection']}' not found in config file. "
+            raise ConfigurationError(f"Metadata connection name '{wal_writer_cfg['metadb_connection']}' not found in config file. "
                              f"For an example see example_config.yaml under the header 'metadb'. Replace 'metadb' with "
                              f"'{wal_writer_cfg['metadb_connection']}' and fill fields with your connection info.")
 
