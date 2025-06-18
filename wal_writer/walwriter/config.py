@@ -33,29 +33,34 @@ class Config:
 
         # validate that the connection named in config file exists and that it has at least one of its required fields.
         # If you just check for name it could have been named properly in the secrets file but not in the config
-        if hasattr(self, self.svc_wal_writer['metadb_connection']) and "type" in getattr(self, self.svc_wal_writer['metadb_connection']):
+        try:
+            wal_writer_cfg = self.svc_wal_writer
+        except AttributeError:
+            raise ConfigurationError("Missing 'svc_wal_writer' in config.yaml.")
+        
+        if hasattr(self, wal_writer_cfg['metadb_connection']) and "type" in getattr(self, wal_writer_cfg['metadb_connection']):
             # get metadata database connection
-            self.svc_wal_writer['metadb_connection'] = getattr(self, self.svc_wal_writer['metadb_connection'])
-            if 'username' not in self.svc_wal_writer['metadb_connection'] or 'password' not in self.svc_wal_writer['metadb_connection']:
+            wal_writer_cfg['metadb_connection'] = getattr(self, wal_writer_cfg['metadb_connection'])
+            if 'username' not in wal_writer_cfg['metadb_connection'] or 'password' not in wal_writer_cfg['metadb_connection']:
                 raise ValueError(f"Username or password not found for metadb_connection name specified in config. "
                                  f"Please specify a username and password in secrets.yaml file under the same name as in the config."
                                  f" See secrets_example.yaml for an example.")
         else:
-            raise ValueError(f"Metadata connection name '{self.svc_wal_writer['metadb_connection']}' not found in config file. "
+            raise ValueError(f"Metadata connection name '{wal_writer_cfg['metadb_connection']}' not found in config file. "
                              f"For an example see example_config.yaml under the header 'metadb'. Replace 'metadb' with "
-                             f"'{self.svc_wal_writer['metadb_connection']}' and fill fields with your connection info.")
+                             f"'{wal_writer_cfg['metadb_connection']}' and fill fields with your connection info.")
 
         # set connection parameters if the database type is not sqlite
-        if self.svc_wal_writer['metadb_connection']['type'] == "sqlite":
+        if wal_writer_cfg['metadb_connection']['type'] == "sqlite":
             self.CONNECTION_PARAMS = None
         else:
-            self.CONNECTION_PARAMS = {'host': self.svc_wal_writer['metadb_connection']['host'],
-                                      'user': self.svc_wal_writer['metadb_connection']['username'],
-                                      'password': self.svc_wal_writer['metadb_connection']['password'],
-                                      'database': self.svc_wal_writer['metadb_connection']['db_name'],
-                                      'port': self.svc_wal_writer['metadb_connection']['port']}
+            self.CONNECTION_PARAMS = {'host': wal_writer_cfg['metadb_connection']['host'],
+                                      'user': wal_writer_cfg['metadb_connection']['username'],
+                                      'password': wal_writer_cfg['metadb_connection']['password'],
+                                      'database': wal_writer_cfg['metadb_connection']['db_name'],
+                                      'port': wal_writer_cfg['metadb_connection']['port']}
         # parse siridb connections if siri is enabled
-        if self.svc_wal_writer['enable_siri']:
+        if wal_writer_cfg['enable_siri']:
             self.siridb['hosts'] = [ast.literal_eval(conn) for conn in self.siridb['hosts']]
 
     def load_config(self, file_name, fallback_to_env=False):
