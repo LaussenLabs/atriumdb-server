@@ -25,6 +25,9 @@ from pathlib import Path
 import os
 import ast
 
+class ConfigurationError(Exception):
+    pass
+
 class Config:
     def __init__(self):
         # load config and secrets files into the config object's attributes
@@ -116,6 +119,8 @@ class Config:
                 if loaded:
                     setattr(self, section_name, section)
                     print(f"[config] Loaded {', '.join(loaded)} from env into '{section_name}'", flush=True)
+        else:
+            raise ConfigurationError(f"Missing required config file: {file_name}")
 
 
 config = Config()
