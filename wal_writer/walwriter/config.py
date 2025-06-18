@@ -70,7 +70,10 @@ class Config:
         # load yaml if provided
         if path.exists():
             with path.open("r") as stream:
-                yaml_data = yaml.load(stream, Loader=yaml.FullLoader) or {}
+                try:
+                    yaml_data = yaml.load(stream, Loader=yaml.FullLoader) or {}
+                except yaml.YAMLError as e:
+                    raise ConfigurationError(f"Failed to parse YAML file '{file_name}': {e}")
 
             config_keys = yaml_data.keys()
             # keys (k) will be the non-indented headers such as metadb, svc_tsc_gen ect
