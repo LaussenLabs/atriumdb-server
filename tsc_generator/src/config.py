@@ -36,7 +36,7 @@ class Config:
         # validate that the connection named in config file exists and that it has at least one of its required fields.
         # If you just check for name it could have been named properly in the secrets file but not in the config
         try:
-            svc_tsc_gen_cfg = self.svc_wal_writer
+            svc_tsc_gen_cfg = self.svc_tsc_gen
         except AttributeError:
             raise ConfigurationError("Missing 'svc_wal_writer' in config.yaml.")
 
