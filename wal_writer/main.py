@@ -253,11 +253,7 @@ async def start_wal_writer():
             await queue.consume(on_message)
 
             _LOGGER.info("Waiting for CMF messages...")
-            try:
-                await asyncio.Future()
-            except asyncio.CancelledError:
-                _LOGGER.info("Exiting start_wal_writer due to cancellation...")
-                raise
+            await asyncio.Future()
         finally:
             await cleanup()
 
