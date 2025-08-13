@@ -1,0 +1,32 @@
+name: atriumdb_server_release
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseVersion:
+        description: 'Release Version'
+        required: true
+        type: string
+
+jobs:
+  build_docker_image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Log in to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: '**/Dockerfile'
+        push: true
+        tags: atriumdb/atriumdb-server:${{ github.event.inputs.releaseVersion }}
